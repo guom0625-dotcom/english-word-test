@@ -26,9 +26,25 @@ android {
         buildConfigField("String", "GITHUB_REPO", "\"guom0625-dotcom/english-word-test\"")
     }
 
+    signingConfigs {
+        create("wordtest") {
+            val keystoreFile = rootProject.file("app/keystore/release.keystore")
+            if (keystoreFile.exists()) {
+                storeFile = keystoreFile
+                storePassword = "wordtest123"
+                keyAlias = "wordtest"
+                keyPassword = "wordtest123"
+            }
+        }
+    }
+
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("wordtest")
+        }
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("wordtest")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
