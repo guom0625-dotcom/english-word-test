@@ -52,7 +52,7 @@ fun HomeScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("엄마아빠 찾지마라", fontWeight = FontWeight.Bold) },
+                title = { Text("Do It Yourself.", fontWeight = FontWeight.Bold) },
                 actions = {
                     IconButton(
                         onClick = {
