@@ -23,6 +23,10 @@ class WordListViewModel(
         viewModelScope.launch { repository.deleteWord(word) }
     }
 
+    fun toggleEnabled(word: WordEntity) {
+        viewModelScope.launch { repository.updateWord(word.copy(isEnabled = !word.isEnabled)) }
+    }
+
     fun addWord(english: String, korean: String, partOfSpeech: String = "") {
         viewModelScope.launch {
             repository.updateWord(

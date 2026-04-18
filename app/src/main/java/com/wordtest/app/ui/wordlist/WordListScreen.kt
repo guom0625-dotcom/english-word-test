@@ -83,7 +83,12 @@ fun WordListScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(words, key = { it.id }) { word ->
-                    WordItem(word = word, onUpdate = { vm.updateWord(it) }, onDelete = { vm.deleteWord(it) })
+                    WordItem(
+                        word = word,
+                        onUpdate = { vm.updateWord(it) },
+                        onDelete = { vm.deleteWord(it) },
+                        onToggleEnabled = { vm.toggleEnabled(word) }
+                    )
                 }
             }
         }
@@ -127,13 +132,24 @@ fun WordListScreen(
 }
 
 @Composable
-private fun WordItem(word: WordEntity, onUpdate: (WordEntity) -> Unit, onDelete: (WordEntity) -> Unit) {
+private fun WordItem(
+    word: WordEntity,
+    onUpdate: (WordEntity) -> Unit,
+    onDelete: (WordEntity) -> Unit,
+    onToggleEnabled: () -> Unit
+) {
     var editMode by remember { mutableStateOf(false) }
     var english by remember(word) { mutableStateOf(word.english) }
     var korean by remember(word) { mutableStateOf(word.korean) }
     var partOfSpeech by remember(word) { mutableStateOf(word.partOfSpeech) }
 
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = if (word.isEnabled) MaterialTheme.colorScheme.surface
+                             else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        )
+    ) {
         if (editMode) {
             Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -161,9 +177,13 @@ private fun WordItem(word: WordEntity, onUpdate: (WordEntity) -> Unit, onDelete:
             }
         } else {
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.Top
+                modifier = Modifier.fillMaxWidth().padding(start = 4.dp, end = 12.dp, top = 8.dp, bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                Checkbox(
+                    checked = word.isEnabled,
+                    onCheckedChange = { onToggleEnabled() }
+                )
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     // 뱃지
                     if (word.isSynonym || word.isAntonym) {

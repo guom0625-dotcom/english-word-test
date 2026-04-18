@@ -11,5 +11,6 @@ data class WordEntity(
     val korean: String,
     val partOfSpeech: String = "",
     val isSynonym: Boolean = false,
-    val isAntonym: Boolean = false
+    val isAntonym: Boolean = false,
+    val isEnabled: Boolean = true
 )

@@ -30,7 +30,13 @@ class TestViewModel(
     init {
         viewModelScope.launch {
             allWords = repository.getWordsBySessionOnce(sessionId)
-            engine = TestEngine(allWords)
+            val testWords = allWords.filter { it.isEnabled }
+            if (testWords.isEmpty()) {
+                // 모두 비활성화된 경우 전체 사용
+                engine = TestEngine(allWords)
+            } else {
+                engine = TestEngine(testWords)
+            }
             showCurrent()
         }
     }
