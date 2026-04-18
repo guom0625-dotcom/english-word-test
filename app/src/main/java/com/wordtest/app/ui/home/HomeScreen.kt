@@ -117,15 +117,12 @@ private fun ModeSelectDialog(
     onStart: (silent: Boolean, synonyms: Boolean, antonyms: Boolean) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var includeSynonyms by remember { mutableStateOf(false) }
-    var includeAntonyms by remember { mutableStateOf(false) }
-
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("테스트 모드 선택") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = { onStart(false, includeSynonyms, includeAntonyms) },
+                OutlinedButton(onClick = { onStart(false, false, false) },
                     modifier = Modifier.fillMaxWidth()) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("🎤 유음 모드", fontWeight = FontWeight.Bold)
@@ -133,7 +130,7 @@ private fun ModeSelectDialog(
                             style = MaterialTheme.typography.bodySmall)
                     }
                 }
-                OutlinedButton(onClick = { onStart(true, includeSynonyms, includeAntonyms) },
+                OutlinedButton(onClick = { onStart(true, false, false) },
                     modifier = Modifier.fillMaxWidth()) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("⌨️ 무음 모드", fontWeight = FontWeight.Bold)
@@ -141,23 +138,9 @@ private fun ModeSelectDialog(
                             style = MaterialTheme.typography.bodySmall)
                     }
                 }
-                HorizontalDivider()
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("유의어 포함", modifier = Modifier.weight(1f),
-                        style = MaterialTheme.typography.bodyMedium)
-                    Switch(checked = includeSynonyms, onCheckedChange = { includeSynonyms = it })
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("반대어 포함", modifier = Modifier.weight(1f),
-                        style = MaterialTheme.typography.bodyMedium)
-                    Switch(checked = includeAntonyms, onCheckedChange = { includeAntonyms = it })
-                }
+                Text("유의어/반대어 포함 여부는 단어 목록에서 설정하세요.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         },
         confirmButton = {},

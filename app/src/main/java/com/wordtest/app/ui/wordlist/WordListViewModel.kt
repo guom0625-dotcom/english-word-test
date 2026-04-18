@@ -27,6 +27,12 @@ class WordListViewModel(
         viewModelScope.launch { repository.updateWord(word.copy(isEnabled = !word.isEnabled)) }
     }
 
+    fun toggleAll(enable: Boolean) {
+        viewModelScope.launch {
+            words.value.forEach { repository.updateWord(it.copy(isEnabled = enable)) }
+        }
+    }
+
     fun addWord(english: String, korean: String, partOfSpeech: String = "") {
         viewModelScope.launch {
             repository.updateWord(

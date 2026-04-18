@@ -13,6 +13,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
@@ -41,11 +42,21 @@ fun WordListScreen(
     val words by vm.words.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
     var showModeDialog by remember { mutableStateOf(false) }
+    var includeSynonyms by remember { mutableStateOf(false) }
+    var includeAntonyms by remember { mutableStateOf(false) }
+
+    val enabledCount = words.count { it.isEnabled }
+    val totalCount = words.size
+    val selectAllState = when {
+        enabledCount == totalCount && totalCount > 0 -> ToggleableState.On
+        enabledCount == 0 -> ToggleableState.Off
+        else -> ToggleableState.Indeterminate
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("단어 목록 (${words.size}개)") },
+                title = { Text("단어 목록 (선택 $enabledCount / ${totalCount}개)") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.Check, contentDescription = "완료")
@@ -59,11 +70,34 @@ fun WordListScreen(
             )
         },
         bottomBar = {
-            Box(modifier = Modifier.padding(16.dp)) {
+            Column(modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                // 유의어/반대어 옵션
+                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("유의어 포함", modifier = Modifier.weight(1f),
+                                style = MaterialTheme.typography.bodyMedium)
+                            Switch(checked = includeSynonyms, onCheckedChange = { includeSynonyms = it })
+                        }
+                        HorizontalDivider()
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("반대어 포함", modifier = Modifier.weight(1f),
+                                style = MaterialTheme.typography.bodyMedium)
+                            Switch(checked = includeAntonyms, onCheckedChange = { includeAntonyms = it })
+                        }
+                    }
+                }
                 Button(
                     onClick = { showModeDialog = true },
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = words.isNotEmpty()
+                    enabled = enabledCount > 0
                 ) {
                     Icon(Icons.Default.PlayArrow, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
@@ -82,6 +116,28 @@ fun WordListScreen(
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(start = 4.dp, end = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TriStateCheckbox(
+                            state = selectAllState,
+                            onClick = {
+                                val enable = selectAllState != ToggleableState.On
+                                vm.toggleAll(enable)
+                            }
+                        )
+                        Text(
+                            when (selectAllState) {
+                                ToggleableState.On -> "전체 선택 해제"
+                                else -> "전체 선택"
+                            },
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                    HorizontalDivider()
+                }
                 items(words, key = { it.id }) { word ->
                     WordItem(
                         word = word,
@@ -95,45 +151,30 @@ fun WordListScreen(
     }
 
     if (showModeDialog) {
-        var includeSynonyms by remember { mutableStateOf(false) }
-        var includeAntonyms by remember { mutableStateOf(false) }
         AlertDialog(
             onDismissRequest = { showModeDialog = false },
             title = { Text("테스트 모드 선택") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { onStartTest(false, includeSynonyms, includeAntonyms); showModeDialog = false },
-                        modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(
+                        onClick = { onStartTest(false, includeSynonyms, includeAntonyms); showModeDialog = false },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text("🎤 유음 모드", fontWeight = FontWeight.Bold)
                             Text("앱이 한글 뜻을 말하면 영어로 말하기",
                                 style = MaterialTheme.typography.bodySmall)
                         }
                     }
-                    OutlinedButton(onClick = { onStartTest(true, includeSynonyms, includeAntonyms); showModeDialog = false },
-                        modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(
+                        onClick = { onStartTest(true, includeSynonyms, includeAntonyms); showModeDialog = false },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text("⌨️ 무음 모드", fontWeight = FontWeight.Bold)
                             Text("한글 뜻을 보고 영어 단어 타이핑",
                                 style = MaterialTheme.typography.bodySmall)
                         }
-                    }
-                    HorizontalDivider()
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("유의어 포함", modifier = Modifier.weight(1f),
-                            style = MaterialTheme.typography.bodyMedium)
-                        Switch(checked = includeSynonyms, onCheckedChange = { includeSynonyms = it })
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("반대어 포함", modifier = Modifier.weight(1f),
-                            style = MaterialTheme.typography.bodyMedium)
-                        Switch(checked = includeAntonyms, onCheckedChange = { includeAntonyms = it })
                     }
                 }
             },
@@ -204,7 +245,6 @@ private fun WordItem(
                     onCheckedChange = { onToggleEnabled() }
                 )
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    // 뱃지
                     if (word.isSynonym || word.isAntonym) {
                         Surface(
                             color = if (word.isAntonym) MaterialTheme.colorScheme.errorContainer
