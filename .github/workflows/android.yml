@@ -9,8 +9,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -41,21 +39,4 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build Debug APK
-        env:
-          BUILD_NUMBER: ${{ github.run_number }}
         run: ./gradlew assembleDebug --stacktrace
-
-      - name: Rename APK
-        run: mv app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/english-word-test-${{ github.run_number }}.apk
-
-      # push to main일 때만 Release 생성
-      - name: Create GitHub Release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ github.run_number }}
-          name: "v${{ github.run_number }}"
-          body: "Build ${{ github.run_number }} - ${{ github.sha }}"
-          files: app/build/outputs/apk/debug/english-word-test-${{ github.run_number }}.apk
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -22,7 +22,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = System.getenv("BUILD_NUMBER")?.toIntOrNull() ?: 1
-        versionName = "1.${System.getenv("BUILD_NUMBER") ?: "0-local"}"
+        versionName = System.getenv("VERSION_NAME") ?: "dev"
         buildConfigField("String", "GITHUB_REPO", "\"guom0625-dotcom/english-word-test\"")
     }
 
