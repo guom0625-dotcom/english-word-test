@@ -43,6 +43,7 @@ fun HomeScreen(
     val sessions by vm.sessions.collectAsState()
     val updateInfo by vm.updateInfo.collectAsState()
     val downloadProgress by vm.downloadProgress.collectAsState()
+    val sessionCounts by vm.sessionCounts.collectAsState()
     var deleteTarget by remember { mutableStateOf<WordSessionEntity?>(null) }
     var testTarget by remember { mutableStateOf<WordSessionEntity?>(null) }
 
@@ -126,7 +127,10 @@ fun HomeScreen(
                     items(sessions) { session ->
                         SessionCard(
                             session = session,
-                            onStartTest = { testTarget = session },
+                            onStartTest = {
+                                testTarget = session
+                                vm.loadSessionCounts(session.id)
+                            },
                             onEdit = { onEditWords(session.id) },
                             onDelete = { deleteTarget = session }
                         )
@@ -139,11 +143,16 @@ fun HomeScreen(
     // 테스트 모드 선택
     testTarget?.let { session ->
         ModeSelectDialog(
+            counts = sessionCounts,
             onStart = { silent ->
                 onStartTest(session.id, silent)
                 testTarget = null
+                vm.clearSessionCounts()
             },
-            onDismiss = { testTarget = null }
+            onDismiss = {
+                testTarget = null
+                vm.clearSessionCounts()
+            }
         )
     }
 
@@ -165,6 +174,7 @@ fun HomeScreen(
 
 @Composable
 private fun ModeSelectDialog(
+    counts: Pair<Int, Int>?,  // (enabled, total)
     onStart: (silent: Boolean) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -173,6 +183,15 @@ private fun ModeSelectDialog(
         title = { Text("테스트 모드 선택") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                counts?.let { (enabled, total) ->
+                    Text(
+                        "선택된 단어: $enabled / ${total}개",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold
+                    )
+                    HorizontalDivider()
+                }
                 OutlinedButton(onClick = { onStart(false) }, modifier = Modifier.fillMaxWidth()) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("🎤 말하기 모드", fontWeight = FontWeight.Bold)

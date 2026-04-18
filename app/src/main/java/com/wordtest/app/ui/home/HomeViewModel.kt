@@ -24,9 +24,22 @@ class HomeViewModel(
     private val _downloadProgress = MutableStateFlow<Int?>(null)
     val downloadProgress = _downloadProgress.asStateFlow()
 
+    // 선택된 세션의 단어 수 (enabled, total)
+    private val _sessionCounts = MutableStateFlow<Pair<Int, Int>?>(null)
+    val sessionCounts = _sessionCounts.asStateFlow()
+
     init {
         checkForUpdate()
     }
+
+    fun loadSessionCounts(sessionId: Long) {
+        viewModelScope.launch {
+            val words = repository.getWordsBySessionOnce(sessionId)
+            _sessionCounts.value = Pair(words.count { it.isEnabled }, words.size)
+        }
+    }
+
+    fun clearSessionCounts() { _sessionCounts.value = null }
 
     private fun checkForUpdate() {
         viewModelScope.launch {
