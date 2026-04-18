@@ -4,7 +4,6 @@ import android.graphics.Bitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.wordtest.app.data.api.GeminiService
-import com.wordtest.app.data.api.WordPair
 import com.wordtest.app.data.repository.WordRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -25,6 +24,7 @@ class ImportViewModel(
     val uiState = _uiState.asStateFlow()
 
     val selectedImages = MutableStateFlow<List<Bitmap>>(emptyList())
+    val includeSynonyms = MutableStateFlow(false)
 
     fun addImage(bitmap: Bitmap) {
         selectedImages.value = selectedImages.value + bitmap
@@ -34,13 +34,17 @@ class ImportViewModel(
         selectedImages.value = selectedImages.value.toMutableList().also { it.removeAt(index) }
     }
 
+    fun toggleSynonyms(value: Boolean) {
+        includeSynonyms.value = value
+    }
+
     fun processImages(sessionName: String) {
         if (selectedImages.value.isEmpty()) return
         viewModelScope.launch {
             _uiState.value = ImportUiState.Processing
-            val allWords = mutableListOf<WordPair>()
+            val allWords = mutableListOf<com.wordtest.app.data.api.WordPair>()
             for (bitmap in selectedImages.value) {
-                geminiService.extractWordsFromImage(bitmap)
+                geminiService.extractWordsFromImage(bitmap, includeSynonyms.value)
                     .onSuccess { allWords.addAll(it) }
                     .onFailure {
                         _uiState.value = ImportUiState.Error("이미지 처리 실패: ${it.message}")
@@ -51,7 +55,7 @@ class ImportViewModel(
                 _uiState.value = ImportUiState.Error("단어를 찾지 못했습니다. 다른 이미지를 시도해 보세요.")
                 return@launch
             }
-            val sessionId = repository.saveSession(sessionName, allWords.map { it.english to it.korean })
+            val sessionId = repository.saveSession(sessionName, allWords)
             _uiState.value = ImportUiState.Done(sessionId)
         }
     }

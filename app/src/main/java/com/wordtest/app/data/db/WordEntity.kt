@@ -8,5 +8,7 @@ data class WordEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val sessionId: Long,
     val english: String,
-    val korean: String
+    val korean: String,
+    val partOfSpeech: String = "",
+    val isSynonym: Boolean = false
 )

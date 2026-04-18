@@ -64,7 +64,9 @@ fun TestScreen(
     }
 
     fun speakKorean(text: String) {
-        tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "utterance_id")
+        // 품사(v., n., a. 등) 제거 후 TTS 발화
+        val cleaned = text.replace(Regex("^[a-z]+\\.\\s*"), "")
+        tts?.speak(cleaned, TextToSpeech.QUEUE_FLUSH, null, "utterance_id")
     }
 
     fun startListening() {
@@ -81,7 +83,7 @@ fun TestScreen(
             is TestUiState.Voice -> speakKorean(state.word.entity.korean)
             is TestUiState.MultipleChoice -> speakKorean(state.word.entity.korean)
             is TestUiState.Finished -> onFinished(state.score, state.total)
-            else -> {}
+            else -> Unit
         }
     }
 
@@ -141,8 +143,14 @@ private fun VoiceTestScreen(
         Text("이 단어의 영어는?", style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(24.dp))
-        Text(korean, fontSize = 42.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-        Spacer(Modifier.height(48.dp))
+        Text(
+            korean,
+            fontSize = 32.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+            lineHeight = 42.sp
+        )
+        Spacer(Modifier.height(32.dp))
 
         TextButton(onClick = onSpeak) {
             Text("다시 듣기")
@@ -186,7 +194,13 @@ private fun MultipleChoiceScreen(
         Text("이 단어의 영어는?", style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(16.dp))
-        Text(korean, fontSize = 36.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+        Text(
+            korean,
+            fontSize = 28.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+            lineHeight = 38.sp
+        )
         Spacer(Modifier.height(8.dp))
         TextButton(onClick = onSpeak) { Text("다시 듣기") }
         Spacer(Modifier.height(32.dp))

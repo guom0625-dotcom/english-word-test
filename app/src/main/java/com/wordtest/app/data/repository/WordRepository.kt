@@ -1,5 +1,6 @@
 package com.wordtest.app.data.repository
 
+import com.wordtest.app.data.api.WordPair
 import com.wordtest.app.data.db.WordDao
 import com.wordtest.app.data.db.WordEntity
 import com.wordtest.app.data.db.WordSessionEntity
@@ -14,10 +15,16 @@ class WordRepository(private val dao: WordDao) {
     suspend fun getWordsBySessionOnce(sessionId: Long): List<WordEntity> =
         dao.getWordsBySessionOnce(sessionId)
 
-    suspend fun saveSession(name: String, words: List<Pair<String, String>>): Long {
+    suspend fun saveSession(name: String, words: List<WordPair>): Long {
         val sessionId = dao.insertSession(WordSessionEntity(name = name))
-        val entities = words.map { (eng, kor) ->
-            WordEntity(sessionId = sessionId, english = eng, korean = kor)
+        val entities = words.map { pair ->
+            WordEntity(
+                sessionId = sessionId,
+                english = pair.english,
+                korean = pair.korean,
+                partOfSpeech = pair.partOfSpeech,
+                isSynonym = pair.isSynonym
+            )
         }
         dao.insertWords(entities)
         return sessionId

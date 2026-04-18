@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material3.*
@@ -25,7 +24,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.wordtest.app.data.api.GeminiService
-import com.wordtest.app.data.repository.WordRepository
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -47,6 +45,7 @@ fun ImportScreen(
 
     val uiState by vm.uiState.collectAsState()
     val images by vm.selectedImages.collectAsState()
+    val includeSynonyms by vm.includeSynonyms.collectAsState()
     var sessionName by remember {
         mutableStateOf("단어목록_${SimpleDateFormat("MMdd_HHmm", Locale.getDefault()).format(Date())}")
     }
@@ -77,7 +76,7 @@ fun ImportScreen(
                 title = { Text("이미지에서 단어 추출") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "뒤로")
+                        Icon(Icons.Default.Close, contentDescription = "뒤로")
                     }
                 }
             )
@@ -117,13 +116,43 @@ fun ImportScreen(
                             )
                             IconButton(
                                 onClick = { vm.removeImage(index) },
-                                modifier = Modifier.align(Alignment.TopEnd).size(24.dp)
+                                modifier = Modifier.align(Alignment.TopEnd).size(28.dp)
                             ) {
-                                Icon(Icons.Default.Close, contentDescription = "제거",
-                                    tint = MaterialTheme.colorScheme.error)
+                                Icon(
+                                    Icons.Default.Close, contentDescription = "제거",
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(18.dp)
+                                )
                             }
                         }
                     }
+                }
+            }
+
+            // 동의어 포함 옵션
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("동의어 포함", style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            "⊕ 기호가 붙은 동의어도 함께 추출",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = includeSynonyms,
+                        onCheckedChange = { vm.toggleSynonyms(it) }
+                    )
                 }
             }
 

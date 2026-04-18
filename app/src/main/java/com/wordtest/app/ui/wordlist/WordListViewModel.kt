@@ -23,9 +23,11 @@ class WordListViewModel(
         viewModelScope.launch { repository.deleteWord(word) }
     }
 
-    fun addWord(english: String, korean: String) {
+    fun addWord(english: String, korean: String, partOfSpeech: String = "") {
         viewModelScope.launch {
-            repository.updateWord(WordEntity(sessionId = sessionId, english = english, korean = korean))
+            repository.updateWord(
+                WordEntity(sessionId = sessionId, english = english, korean = korean, partOfSpeech = partOfSpeech)
+            )
         }
     }
 }
