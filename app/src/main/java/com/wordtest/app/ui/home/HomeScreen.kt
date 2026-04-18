@@ -43,20 +43,28 @@ fun HomeScreen(
     val sessions by vm.sessions.collectAsState()
     val updateInfo by vm.updateInfo.collectAsState()
     val downloadProgress by vm.downloadProgress.collectAsState()
+    val isCheckingUpdate by vm.isCheckingUpdate.collectAsState()
     val sessionCounts by vm.sessionCounts.collectAsState()
     var deleteTarget by remember { mutableStateOf<WordSessionEntity?>(null) }
     var testTarget by remember { mutableStateOf<WordSessionEntity?>(null) }
+    var showUpdateResult by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("엄마아빠 찾지마라", fontWeight = FontWeight.Bold) },
                 actions = {
-                    if (updateInfo != null) {
-                        IconButton(onClick = { /* 업데이트 다이얼로그는 아래에서 표시 */ }) {
-                            BadgedBox(badge = { Badge() }) {
-                                Icon(Icons.Default.SystemUpdate, contentDescription = "업데이트")
-                            }
+                    IconButton(
+                        onClick = {
+                            vm.checkForUpdate()
+                            showUpdateResult = true
+                        },
+                        enabled = !isCheckingUpdate
+                    ) {
+                        if (isCheckingUpdate) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        } else {
+                            Icon(Icons.Default.SystemUpdate, contentDescription = "업데이트 확인")
                         }
                     }
                     IconButton(onClick = onApiKeySetting) {
@@ -72,42 +80,6 @@ fun HomeScreen(
         }
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            // 업데이트 배너
-            updateInfo?.let { info ->
-                Card(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("새 버전 ${info.versionName} 사용 가능",
-                                fontWeight = FontWeight.Bold,
-                                style = MaterialTheme.typography.bodyMedium)
-                            Text("현재: v${BuildConfig.VERSION_NAME}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f))
-                        }
-                        if (downloadProgress != null) {
-                            CircularProgressIndicator(
-                                progress = { downloadProgress!! / 100f },
-                                modifier = Modifier.size(32.dp),
-                                strokeWidth = 3.dp
-                            )
-                        } else {
-                            TextButton(onClick = { vm.startUpdate(info.downloadUrl) }) {
-                                Text("업데이트")
-                            }
-                            TextButton(onClick = { vm.dismissUpdate() }) {
-                                Text("나중에")
-                            }
-                        }
-                    }
-                }
-            }
-
             if (sessions.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -154,6 +126,56 @@ fun HomeScreen(
                 vm.clearSessionCounts()
             }
         )
+    }
+
+    // 업데이트 결과 다이얼로그
+    if (showUpdateResult && !isCheckingUpdate) {
+        val info = updateInfo
+        if (info != null) {
+            AlertDialog(
+                onDismissRequest = { showUpdateResult = false; vm.dismissUpdate() },
+                title = { Text("새 버전 사용 가능") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("최신 버전: ${info.versionName}")
+                        Text("현재 버전: v${BuildConfig.VERSION_NAME}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (downloadProgress != null) {
+                            LinearProgressIndicator(
+                                progress = { downloadProgress!! / 100f },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Text("다운로드 중... ${downloadProgress}%",
+                                style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                },
+                confirmButton = {
+                    if (downloadProgress == null) {
+                        TextButton(onClick = { vm.startUpdate(info.downloadUrl) }) {
+                            Text("업데이트")
+                        }
+                    }
+                },
+                dismissButton = {
+                    if (downloadProgress == null) {
+                        TextButton(onClick = { showUpdateResult = false; vm.dismissUpdate() }) {
+                            Text("나중에")
+                        }
+                    }
+                }
+            )
+        } else {
+            AlertDialog(
+                onDismissRequest = { showUpdateResult = false },
+                title = { Text("업데이트 확인") },
+                text = { Text("현재 최신 버전입니다. (v${BuildConfig.VERSION_NAME})") },
+                confirmButton = {
+                    TextButton(onClick = { showUpdateResult = false }) { Text("확인") }
+                }
+            )
+        }
     }
 
     // 삭제 확인

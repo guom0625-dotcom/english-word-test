@@ -24,13 +24,12 @@ class HomeViewModel(
     private val _downloadProgress = MutableStateFlow<Int?>(null)
     val downloadProgress = _downloadProgress.asStateFlow()
 
+    private val _isCheckingUpdate = MutableStateFlow(false)
+    val isCheckingUpdate = _isCheckingUpdate.asStateFlow()
+
     // 선택된 세션의 단어 수 (enabled, total)
     private val _sessionCounts = MutableStateFlow<Pair<Int, Int>?>(null)
     val sessionCounts = _sessionCounts.asStateFlow()
-
-    init {
-        checkForUpdate()
-    }
 
     fun loadSessionCounts(sessionId: Long) {
         viewModelScope.launch {
@@ -41,10 +40,14 @@ class HomeViewModel(
 
     fun clearSessionCounts() { _sessionCounts.value = null }
 
-    private fun checkForUpdate() {
+    fun checkForUpdate() {
+        if (_isCheckingUpdate.value) return
         viewModelScope.launch {
+            _isCheckingUpdate.value = true
+            _updateInfo.value = null
             updateChecker.checkForUpdate()
                 .onSuccess { _updateInfo.value = it }
+            _isCheckingUpdate.value = false
         }
     }
 
