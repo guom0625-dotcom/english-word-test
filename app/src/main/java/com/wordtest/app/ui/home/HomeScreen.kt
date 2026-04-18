@@ -9,6 +9,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -16,6 +17,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.wordtest.app.BuildConfig
+import com.wordtest.app.data.UpdateChecker
 import com.wordtest.app.data.db.WordSessionEntity
 import com.wordtest.app.data.repository.WordRepository
 import java.text.SimpleDateFormat
@@ -25,6 +28,7 @@ import java.util.*
 @Composable
 fun HomeScreen(
     repository: WordRepository,
+    updateChecker: UpdateChecker,
     onNewSession: () -> Unit,
     onStartTest: (Long, Boolean) -> Unit,
     onEditWords: (Long) -> Unit,
@@ -33,10 +37,12 @@ fun HomeScreen(
     val vm: HomeViewModel = viewModel(factory = object : androidx.lifecycle.ViewModelProvider.Factory {
         override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
             @Suppress("UNCHECKED_CAST")
-            return HomeViewModel(repository) as T
+            return HomeViewModel(repository, updateChecker) as T
         }
     })
     val sessions by vm.sessions.collectAsState()
+    val updateInfo by vm.updateInfo.collectAsState()
+    val downloadProgress by vm.downloadProgress.collectAsState()
     var deleteTarget by remember { mutableStateOf<WordSessionEntity?>(null) }
     var testTarget by remember { mutableStateOf<WordSessionEntity?>(null) }
 
@@ -45,6 +51,13 @@ fun HomeScreen(
             TopAppBar(
                 title = { Text("영단어 테스트", fontWeight = FontWeight.Bold) },
                 actions = {
+                    if (updateInfo != null) {
+                        IconButton(onClick = { /* 업데이트 다이얼로그는 아래에서 표시 */ }) {
+                            BadgedBox(badge = { Badge() }) {
+                                Icon(Icons.Default.SystemUpdate, contentDescription = "업데이트")
+                            }
+                        }
+                    }
                     IconButton(onClick = onApiKeySetting) {
                         Icon(Icons.Default.Key, contentDescription = "API 키 설정")
                     }
@@ -57,29 +70,67 @@ fun HomeScreen(
             }
         }
     ) { padding ->
-        if (sessions.isEmpty()) {
-            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("단어 목록이 없습니다", style = MaterialTheme.typography.bodyLarge)
-                    Spacer(Modifier.height(8.dp))
-                    Text("+ 버튼으로 이미지에서 단어를 추가하세요",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+            // 업데이트 배너
+            updateInfo?.let { info ->
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("새 버전 ${info.versionName} 사용 가능",
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.bodyMedium)
+                            Text("현재: v${BuildConfig.VERSION_NAME}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f))
+                        }
+                        if (downloadProgress != null) {
+                            CircularProgressIndicator(
+                                progress = { downloadProgress!! / 100f },
+                                modifier = Modifier.size(32.dp),
+                                strokeWidth = 3.dp
+                            )
+                        } else {
+                            TextButton(onClick = { vm.startUpdate(info.downloadUrl) }) {
+                                Text("업데이트")
+                            }
+                            TextButton(onClick = { vm.dismissUpdate() }) {
+                                Text("나중에")
+                            }
+                        }
+                    }
                 }
             }
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(padding),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(sessions) { session ->
-                    SessionCard(
-                        session = session,
-                        onStartTest = { testTarget = session },
-                        onEdit = { onEditWords(session.id) },
-                        onDelete = { deleteTarget = session }
-                    )
+
+            if (sessions.isEmpty()) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("단어 목록이 없습니다", style = MaterialTheme.typography.bodyLarge)
+                        Spacer(Modifier.height(8.dp))
+                        Text("+ 버튼으로 이미지에서 단어를 추가하세요",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(sessions) { session ->
+                        SessionCard(
+                            session = session,
+                            onStartTest = { testTarget = session },
+                            onEdit = { onEditWords(session.id) },
+                            onDelete = { deleteTarget = session }
+                        )
+                    }
                 }
             }
         }

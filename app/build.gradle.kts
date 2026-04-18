@@ -21,9 +21,9 @@ android {
         applicationId = "com.wordtest.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
-        // API 키는 앱 내 사용자 입력으로 관리 (SharedPreferences)
+        versionCode = System.getenv("BUILD_NUMBER")?.toIntOrNull() ?: 1
+        versionName = "1.${System.getenv("BUILD_NUMBER") ?: "0-local"}"
+        buildConfigField("String", "GITHUB_REPO", "\"guom0625-dotcom/english-word-test\"")
     }
 
     buildTypes {

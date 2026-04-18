@@ -63,6 +63,7 @@ fun AppNavigation(app: WordTestApplication) {
         composable(Screen.Home.route) {
             HomeScreen(
                 repository = app.repository,
+                updateChecker = app.updateChecker,
                 onNewSession = { navController.navigate(Screen.Import.route) },
                 onStartTest = { sessionId, silent ->
                     navController.navigate(Screen.Test.createRoute(sessionId, silent))
