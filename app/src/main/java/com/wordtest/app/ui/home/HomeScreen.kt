@@ -50,7 +50,7 @@ fun HomeScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("영단어 테스트", fontWeight = FontWeight.Bold) },
+                title = { Text("엄마아빠 찾지마라", fontWeight = FontWeight.Bold) },
                 actions = {
                     if (updateInfo != null) {
                         IconButton(onClick = { /* 업데이트 다이얼로그는 아래에서 표시 */ }) {
