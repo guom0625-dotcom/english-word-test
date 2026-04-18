@@ -27,7 +27,7 @@ class GeminiService {
         .build()
 
     private val apiUrl =
-        "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${BuildConfig.GEMINI_API_KEY}"
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${BuildConfig.GEMINI_API_KEY}"
 
     suspend fun extractWordsFromImage(bitmap: Bitmap): Result<List<WordPair>> = withContext(Dispatchers.IO) {
         runCatching {
