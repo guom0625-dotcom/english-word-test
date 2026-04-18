@@ -19,7 +19,9 @@ sealed class TestUiState {
 
 class TestViewModel(
     private val sessionId: Long,
-    private val repository: WordRepository
+    private val repository: WordRepository,
+    private val includeSynonyms: Boolean = false,
+    private val includeAntonyms: Boolean = false
 ) : ViewModel() {
     private val _uiState = MutableStateFlow<TestUiState>(TestUiState.Loading)
     val uiState = _uiState.asStateFlow()
@@ -30,10 +32,13 @@ class TestViewModel(
     init {
         viewModelScope.launch {
             allWords = repository.getWordsBySessionOnce(sessionId)
-            val testWords = allWords.filter { it.isEnabled }
+            val testWords = allWords
+                .filter { it.isEnabled }
+                .filter { if (!includeSynonyms) !it.isSynonym else true }
+                .filter { if (!includeAntonyms) !it.isAntonym else true }
             if (testWords.isEmpty()) {
-                // 모두 비활성화된 경우 전체 사용
-                engine = TestEngine(allWords)
+                // 필터 결과 없으면 isEnabled 단어만 사용
+                engine = TestEngine(allWords.filter { it.isEnabled }.ifEmpty { allWords })
             } else {
                 engine = TestEngine(testWords)
             }

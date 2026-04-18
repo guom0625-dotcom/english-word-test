@@ -36,22 +36,10 @@ class GeminiService(private val apiKeyStore: ApiKeyStore) {
         "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKeyStore.getApiKey()}"
 
     suspend fun extractWordsFromImage(
-        bitmap: Bitmap,
-        includeSynonyms: Boolean = false,
-        includeAntonyms: Boolean = false
+        bitmap: Bitmap
     ): Result<List<WordPair>> = withContext(Dispatchers.IO) {
         runCatching {
             val imageBase64 = bitmapToBase64(bitmap)
-
-            val synonymRule = if (includeSynonyms)
-                "= 기호가 붙은 유의어도 포함해. isSynonym: true로 설정해."
-            else
-                "= 기호가 붙은 유의어는 제외해."
-
-            val antonymRule = if (includeAntonyms)
-                "<-> 기호가 붙은 반대어도 포함해. isAntonym: true로 설정해."
-            else
-                "<-> 기호가 붙은 반대어는 제외해."
 
             val prompt = """
                 이 이미지는 영단어 학습 교재야. 영단어와 한글 뜻을 추출해서 JSON 배열로만 반환해줘.
@@ -63,8 +51,8 @@ class GeminiService(private val apiKeyStore: ApiKeyStore) {
                 3. 같은 영단어가 여러 품사(v., n. 등)로 여러 번 나타나면, 반드시 하나로 합쳐줘.
                    - korean: 뜻을 " / " 로 구분해서 합쳐. 예: "제공하다, 공급하다 / 조항, 규정"
                    - partOfSpeech: 품사도 합쳐. 예: "v./n."
-                4. $synonymRule
-                5. $antonymRule
+                4. = 기호가 붙은 유의어도 포함해. isSynonym: true로 설정해.
+                5. <-> 기호가 붙은 반대어도 포함해. isAntonym: true로 설정해.
                 6. isSynonym, isAntonym 기본값은 false야.
 
                 형식 예시:

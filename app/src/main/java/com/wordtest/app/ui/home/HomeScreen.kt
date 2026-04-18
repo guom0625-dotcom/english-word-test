@@ -26,7 +26,7 @@ import java.util.*
 fun HomeScreen(
     repository: WordRepository,
     onNewSession: () -> Unit,
-    onStartTest: (Long, Boolean) -> Unit,
+    onStartTest: (Long, Boolean, Boolean, Boolean) -> Unit,
     onEditWords: (Long) -> Unit,
     onApiKeySetting: () -> Unit
 ) {
@@ -88,8 +88,10 @@ fun HomeScreen(
     // 테스트 모드 선택
     testTarget?.let { session ->
         ModeSelectDialog(
-            onVoice = { onStartTest(session.id, false); testTarget = null },
-            onSilent = { onStartTest(session.id, true); testTarget = null },
+            onStart = { silent, synonyms, antonyms ->
+                onStartTest(session.id, silent, synonyms, antonyms)
+                testTarget = null
+            },
             onDismiss = { testTarget = null }
         )
     }
@@ -112,28 +114,49 @@ fun HomeScreen(
 
 @Composable
 private fun ModeSelectDialog(
-    onVoice: () -> Unit,
-    onSilent: () -> Unit,
+    onStart: (silent: Boolean, synonyms: Boolean, antonyms: Boolean) -> Unit,
     onDismiss: () -> Unit
 ) {
+    var includeSynonyms by remember { mutableStateOf(false) }
+    var includeAntonyms by remember { mutableStateOf(false) }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("테스트 모드 선택") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = onVoice, modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(onClick = { onStart(false, includeSynonyms, includeAntonyms) },
+                    modifier = Modifier.fillMaxWidth()) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("🎤 유음 모드", fontWeight = FontWeight.Bold)
                         Text("앱이 한글 뜻을 말하면 영어로 말하기",
                             style = MaterialTheme.typography.bodySmall)
                     }
                 }
-                OutlinedButton(onClick = onSilent, modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(onClick = { onStart(true, includeSynonyms, includeAntonyms) },
+                    modifier = Modifier.fillMaxWidth()) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("⌨️ 무음 모드", fontWeight = FontWeight.Bold)
                         Text("한글 뜻을 보고 영어 단어 타이핑",
                             style = MaterialTheme.typography.bodySmall)
                     }
+                }
+                HorizontalDivider()
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("유의어 포함", modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.bodyMedium)
+                    Switch(checked = includeSynonyms, onCheckedChange = { includeSynonyms = it })
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("반대어 포함", modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.bodyMedium)
+                    Switch(checked = includeAntonyms, onCheckedChange = { includeAntonyms = it })
                 }
             }
         },

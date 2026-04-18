@@ -46,8 +46,6 @@ fun ImportScreen(
 
     val uiState by vm.uiState.collectAsState()
     val images by vm.selectedImages.collectAsState()
-    val includeSynonyms by vm.includeSynonyms.collectAsState()
-    val includeAntonyms by vm.includeAntonyms.collectAsState()
     var sessionName by remember {
         mutableStateOf("단어목록_${SimpleDateFormat("MMdd_HHmm", Locale.getDefault()).format(Date())}")
     }
@@ -131,28 +129,6 @@ fun ImportScreen(
                 }
             }
 
-            // 추출 옵션
-            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                    Text("추출 옵션", style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(bottom = 4.dp))
-                    OptionRow(
-                        label = "유의어 포함 (= 기호)",
-                        description = "= 기호가 붙은 유의어 함께 추출",
-                        checked = includeSynonyms,
-                        onCheckedChange = { vm.toggleSynonyms(it) }
-                    )
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-                    OptionRow(
-                        label = "반대어 포함 (<-> 기호)",
-                        description = "<-> 기호가 붙은 반대어 함께 추출",
-                        checked = includeAntonyms,
-                        onCheckedChange = { vm.toggleAntonyms(it) }
-                    )
-                }
-            }
-
             Spacer(Modifier.weight(1f))
 
             Button(
@@ -185,22 +161,3 @@ fun ImportScreen(
     }
 }
 
-@Composable
-private fun OptionRow(
-    label: String,
-    description: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(label, style = MaterialTheme.typography.bodyMedium)
-            Text(description, style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
-    }
-}

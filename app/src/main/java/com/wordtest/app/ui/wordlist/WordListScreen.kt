@@ -29,7 +29,7 @@ import com.wordtest.app.data.repository.WordRepository
 fun WordListScreen(
     sessionId: Long,
     repository: WordRepository,
-    onStartTest: (Boolean) -> Unit,
+    onStartTest: (Boolean, Boolean, Boolean) -> Unit,
     onBack: () -> Unit
 ) {
     val vm: WordListViewModel = viewModel(factory = object : androidx.lifecycle.ViewModelProvider.Factory {
@@ -95,12 +95,14 @@ fun WordListScreen(
     }
 
     if (showModeDialog) {
+        var includeSynonyms by remember { mutableStateOf(false) }
+        var includeAntonyms by remember { mutableStateOf(false) }
         AlertDialog(
             onDismissRequest = { showModeDialog = false },
             title = { Text("테스트 모드 선택") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { onStartTest(false); showModeDialog = false },
+                    OutlinedButton(onClick = { onStartTest(false, includeSynonyms, includeAntonyms); showModeDialog = false },
                         modifier = Modifier.fillMaxWidth()) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text("🎤 유음 모드", fontWeight = FontWeight.Bold)
@@ -108,13 +110,30 @@ fun WordListScreen(
                                 style = MaterialTheme.typography.bodySmall)
                         }
                     }
-                    OutlinedButton(onClick = { onStartTest(true); showModeDialog = false },
+                    OutlinedButton(onClick = { onStartTest(true, includeSynonyms, includeAntonyms); showModeDialog = false },
                         modifier = Modifier.fillMaxWidth()) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text("⌨️ 무음 모드", fontWeight = FontWeight.Bold)
                             Text("한글 뜻을 보고 영어 단어 타이핑",
                                 style = MaterialTheme.typography.bodySmall)
                         }
+                    }
+                    HorizontalDivider()
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("유의어 포함", modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodyMedium)
+                        Switch(checked = includeSynonyms, onCheckedChange = { includeSynonyms = it })
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("반대어 포함", modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodyMedium)
+                        Switch(checked = includeAntonyms, onCheckedChange = { includeAntonyms = it })
                     }
                 }
             },

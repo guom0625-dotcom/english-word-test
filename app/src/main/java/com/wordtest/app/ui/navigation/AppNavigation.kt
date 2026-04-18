@@ -23,11 +23,13 @@ sealed class Screen(val route: String) {
     object WordList : Screen("wordlist/{sessionId}") {
         fun createRoute(sessionId: Long) = "wordlist/$sessionId"
     }
-    object Test : Screen("test/{sessionId}/{silent}") {
-        fun createRoute(sessionId: Long, silent: Boolean) = "test/$sessionId/$silent"
+    object Test : Screen("test/{sessionId}/{silent}/{synonyms}/{antonyms}") {
+        fun createRoute(sessionId: Long, silent: Boolean, synonyms: Boolean, antonyms: Boolean) =
+            "test/$sessionId/$silent/$synonyms/$antonyms"
     }
-    object Result : Screen("result/{score}/{total}/{sessionId}") {
-        fun createRoute(score: Int, total: Int, sessionId: Long) = "result/$score/$total/$sessionId"
+    object Result : Screen("result/{score}/{total}/{sessionId}/{synonyms}/{antonyms}") {
+        fun createRoute(score: Int, total: Int, sessionId: Long, synonyms: Boolean, antonyms: Boolean) =
+            "result/$score/$total/$sessionId/$synonyms/$antonyms"
     }
 }
 
@@ -64,8 +66,8 @@ fun AppNavigation(app: WordTestApplication) {
             HomeScreen(
                 repository = app.repository,
                 onNewSession = { navController.navigate(Screen.Import.route) },
-                onStartTest = { sessionId, silent ->
-                    navController.navigate(Screen.Test.createRoute(sessionId, silent))
+                onStartTest = { sessionId, silent, synonyms, antonyms ->
+                    navController.navigate(Screen.Test.createRoute(sessionId, silent, synonyms, antonyms))
                 },
                 onEditWords = { sessionId -> navController.navigate(Screen.WordList.createRoute(sessionId)) },
                 onApiKeySetting = { navController.navigate(Screen.ApiKey.createRoute(false)) }
@@ -92,8 +94,8 @@ fun AppNavigation(app: WordTestApplication) {
             WordListScreen(
                 sessionId = sessionId,
                 repository = app.repository,
-                onStartTest = { silent ->
-                    navController.navigate(Screen.Test.createRoute(sessionId, silent)) {
+                onStartTest = { silent, synonyms, antonyms ->
+                    navController.navigate(Screen.Test.createRoute(sessionId, silent, synonyms, antonyms)) {
                         popUpTo(Screen.Home.route)
                     }
                 },
@@ -105,17 +107,23 @@ fun AppNavigation(app: WordTestApplication) {
             route = Screen.Test.route,
             arguments = listOf(
                 navArgument("sessionId") { type = NavType.LongType },
-                navArgument("silent") { type = NavType.BoolType }
+                navArgument("silent") { type = NavType.BoolType },
+                navArgument("synonyms") { type = NavType.BoolType },
+                navArgument("antonyms") { type = NavType.BoolType }
             )
         ) { backStackEntry ->
             val sessionId = backStackEntry.arguments?.getLong("sessionId") ?: return@composable
             val silent = backStackEntry.arguments?.getBoolean("silent") ?: false
+            val synonyms = backStackEntry.arguments?.getBoolean("synonyms") ?: false
+            val antonyms = backStackEntry.arguments?.getBoolean("antonyms") ?: false
             TestScreen(
                 sessionId = sessionId,
                 silentMode = silent,
+                includeSynonyms = synonyms,
+                includeAntonyms = antonyms,
                 repository = app.repository,
                 onFinished = { score, total ->
-                    navController.navigate(Screen.Result.createRoute(score, total, sessionId)) {
+                    navController.navigate(Screen.Result.createRoute(score, total, sessionId, synonyms, antonyms)) {
                         popUpTo(Screen.Home.route)
                     }
                 }
@@ -127,12 +135,16 @@ fun AppNavigation(app: WordTestApplication) {
             arguments = listOf(
                 navArgument("score") { type = NavType.IntType },
                 navArgument("total") { type = NavType.IntType },
-                navArgument("sessionId") { type = NavType.LongType }
+                navArgument("sessionId") { type = NavType.LongType },
+                navArgument("synonyms") { type = NavType.BoolType },
+                navArgument("antonyms") { type = NavType.BoolType }
             )
         ) { backStackEntry ->
             val score = backStackEntry.arguments?.getInt("score") ?: 0
             val total = backStackEntry.arguments?.getInt("total") ?: 0
             val sessionId = backStackEntry.arguments?.getLong("sessionId") ?: 0L
+            val synonyms = backStackEntry.arguments?.getBoolean("synonyms") ?: false
+            val antonyms = backStackEntry.arguments?.getBoolean("antonyms") ?: false
             ResultScreen(
                 score = score, total = total, sessionId = sessionId,
                 repository = app.repository,
@@ -142,7 +154,7 @@ fun AppNavigation(app: WordTestApplication) {
                     }
                 },
                 onRetry = { silent ->
-                    navController.navigate(Screen.Test.createRoute(sessionId, silent)) {
+                    navController.navigate(Screen.Test.createRoute(sessionId, silent, synonyms, antonyms)) {
                         popUpTo(Screen.Home.route)
                     }
                 }
