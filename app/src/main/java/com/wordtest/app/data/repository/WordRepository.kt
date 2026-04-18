@@ -32,6 +32,13 @@ class WordRepository(private val dao: WordDao) {
         return sessionId
     }
 
+    // 중복 없으면 추가, 있으면 무시. true = 추가됨
+    suspend fun addWordIfNew(word: WordEntity): Boolean {
+        if (dao.existsByEnglish(word.sessionId, word.english) > 0) return false
+        dao.insertWord(word)
+        return true
+    }
+
     suspend fun updateWord(word: WordEntity) = dao.updateWord(word)
     suspend fun deleteWord(word: WordEntity) = dao.deleteWord(word)
     suspend fun renameSession(sessionId: Long, name: String) = dao.updateSessionName(sessionId, name)

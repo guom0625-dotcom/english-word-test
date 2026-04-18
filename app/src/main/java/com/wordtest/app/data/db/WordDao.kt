@@ -40,4 +40,10 @@ interface WordDao {
 
     @Query("SELECT COUNT(*) FROM words WHERE sessionId = :sessionId")
     suspend fun getWordCount(sessionId: Long): Int
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertWord(word: WordEntity): Long
+
+    @Query("SELECT COUNT(*) FROM words WHERE sessionId = :sessionId AND lower(english) = lower(:english)")
+    suspend fun existsByEnglish(sessionId: Long, english: String): Int
 }

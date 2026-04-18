@@ -76,7 +76,7 @@ class WordListViewModel(
 
     fun addWord(english: String, korean: String, partOfSpeech: String = "") {
         viewModelScope.launch {
-            repository.updateWord(
+            repository.addWordIfNew(
                 WordEntity(sessionId = sessionId, english = english, korean = korean, partOfSpeech = partOfSpeech)
             )
         }
@@ -85,11 +85,12 @@ class WordListViewModel(
     fun addWordsFromImages(bitmaps: List<Bitmap>) {
         viewModelScope.launch {
             _isProcessing.value = true
+            var skipped = 0
             for (bitmap in bitmaps) {
                 geminiService.extractWordsFromImage(bitmap)
                     .onSuccess { pairs ->
                         pairs.forEach { pair ->
-                            repository.updateWord(
+                            val added = repository.addWordIfNew(
                                 WordEntity(
                                     sessionId = sessionId,
                                     english = pair.english,
@@ -99,11 +100,13 @@ class WordListViewModel(
                                     isAntonym = pair.isAntonym
                                 )
                             )
+                            if (!added) skipped++
                         }
                     }
                     .onFailure { _imageError.value = "이미지 처리 실패: ${it.message}" }
             }
             _isProcessing.value = false
+            if (skipped > 0) _imageError.value = "중복 단어 ${skipped}개는 건너뛰었습니다."
         }
     }
 
