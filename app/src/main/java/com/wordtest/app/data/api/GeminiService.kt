@@ -14,7 +14,7 @@ class GeminiService {
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
     private val model = GenerativeModel(
-        modelName = "gemini-1.5-flash",
+        modelName = "gemini-2.0-flash",
         apiKey = BuildConfig.GEMINI_API_KEY
     )
 
