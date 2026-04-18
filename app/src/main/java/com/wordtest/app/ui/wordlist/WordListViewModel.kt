@@ -27,9 +27,30 @@ class WordListViewModel(
         viewModelScope.launch { repository.updateWord(word.copy(isEnabled = !word.isEnabled)) }
     }
 
-    fun toggleAll(enable: Boolean) {
+    fun setSynonymsEnabled(enabled: Boolean) {
         viewModelScope.launch {
-            words.value.forEach { repository.updateWord(it.copy(isEnabled = enable)) }
+            words.value.filter { it.isSynonym }
+                .forEach { repository.updateWord(it.copy(isEnabled = enabled)) }
+        }
+    }
+
+    fun setAntonymsEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            words.value.filter { it.isAntonym }
+                .forEach { repository.updateWord(it.copy(isEnabled = enabled)) }
+        }
+    }
+
+    fun toggleAll(enable: Boolean, includeSynonyms: Boolean, includeAntonyms: Boolean) {
+        viewModelScope.launch {
+            words.value.forEach { word ->
+                val inScope = when {
+                    word.isSynonym -> includeSynonyms
+                    word.isAntonym -> includeAntonyms
+                    else -> true
+                }
+                if (inScope) repository.updateWord(word.copy(isEnabled = enable))
+            }
         }
     }
 

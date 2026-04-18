@@ -42,14 +42,26 @@ fun WordListScreen(
     val words by vm.words.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
     var showModeDialog by remember { mutableStateOf(false) }
-    var includeSynonyms by remember { mutableStateOf(false) }
-    var includeAntonyms by remember { mutableStateOf(false) }
 
+    // 스위치 상태: 해당 카테고리 단어가 모두 enabled인지 여부로 파생
+    val synonymWords = words.filter { it.isSynonym }
+    val antonymWords = words.filter { it.isAntonym }
+    val includeSynonyms = synonymWords.isNotEmpty() && synonymWords.all { it.isEnabled }
+    val includeAntonyms = antonymWords.isNotEmpty() && antonymWords.all { it.isEnabled }
+
+    // 전체선택은 스위치가 켜진 카테고리만 대상
+    val inScopeWords = words.filter { word ->
+        when {
+            word.isSynonym -> includeSynonyms
+            word.isAntonym -> includeAntonyms
+            else -> true
+        }
+    }
     val enabledCount = words.count { it.isEnabled }
     val totalCount = words.size
     val selectAllState = when {
-        enabledCount == totalCount && totalCount > 0 -> ToggleableState.On
-        enabledCount == 0 -> ToggleableState.Off
+        inScopeWords.isNotEmpty() && inScopeWords.all { it.isEnabled } -> ToggleableState.On
+        inScopeWords.none { it.isEnabled } -> ToggleableState.Off
         else -> ToggleableState.Indeterminate
     }
 
@@ -81,7 +93,7 @@ fun WordListScreen(
                         ) {
                             Text("유의어 포함", modifier = Modifier.weight(1f),
                                 style = MaterialTheme.typography.bodyMedium)
-                            Switch(checked = includeSynonyms, onCheckedChange = { includeSynonyms = it })
+                            Switch(checked = includeSynonyms, onCheckedChange = { vm.setSynonymsEnabled(it) })
                         }
                         HorizontalDivider()
                         Row(
@@ -90,7 +102,7 @@ fun WordListScreen(
                         ) {
                             Text("반대어 포함", modifier = Modifier.weight(1f),
                                 style = MaterialTheme.typography.bodyMedium)
-                            Switch(checked = includeAntonyms, onCheckedChange = { includeAntonyms = it })
+                            Switch(checked = includeAntonyms, onCheckedChange = { vm.setAntonymsEnabled(it) })
                         }
                     }
                 }
@@ -125,7 +137,7 @@ fun WordListScreen(
                             state = selectAllState,
                             onClick = {
                                 val enable = selectAllState != ToggleableState.On
-                                vm.toggleAll(enable)
+                                vm.toggleAll(enable, includeSynonyms, includeAntonyms)
                             }
                         )
                         Text(

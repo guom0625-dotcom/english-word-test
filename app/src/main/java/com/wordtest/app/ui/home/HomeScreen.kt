@@ -26,7 +26,7 @@ import java.util.*
 fun HomeScreen(
     repository: WordRepository,
     onNewSession: () -> Unit,
-    onStartTest: (Long, Boolean, Boolean, Boolean) -> Unit,
+    onStartTest: (Long, Boolean) -> Unit,
     onEditWords: (Long) -> Unit,
     onApiKeySetting: () -> Unit
 ) {
@@ -88,8 +88,8 @@ fun HomeScreen(
     // 테스트 모드 선택
     testTarget?.let { session ->
         ModeSelectDialog(
-            onStart = { silent, synonyms, antonyms ->
-                onStartTest(session.id, silent, synonyms, antonyms)
+            onStart = { silent ->
+                onStartTest(session.id, silent)
                 testTarget = null
             },
             onDismiss = { testTarget = null }
@@ -114,7 +114,7 @@ fun HomeScreen(
 
 @Composable
 private fun ModeSelectDialog(
-    onStart: (silent: Boolean, synonyms: Boolean, antonyms: Boolean) -> Unit,
+    onStart: (silent: Boolean) -> Unit,
     onDismiss: () -> Unit
 ) {
     AlertDialog(
@@ -122,25 +122,20 @@ private fun ModeSelectDialog(
         title = { Text("테스트 모드 선택") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = { onStart(false, false, false) },
-                    modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(onClick = { onStart(false) }, modifier = Modifier.fillMaxWidth()) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("🎤 유음 모드", fontWeight = FontWeight.Bold)
                         Text("앱이 한글 뜻을 말하면 영어로 말하기",
                             style = MaterialTheme.typography.bodySmall)
                     }
                 }
-                OutlinedButton(onClick = { onStart(true, false, false) },
-                    modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(onClick = { onStart(true) }, modifier = Modifier.fillMaxWidth()) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("⌨️ 무음 모드", fontWeight = FontWeight.Bold)
                         Text("한글 뜻을 보고 영어 단어 타이핑",
                             style = MaterialTheme.typography.bodySmall)
                     }
                 }
-                Text("유의어/반대어 포함 여부는 단어 목록에서 설정하세요.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         },
         confirmButton = {},

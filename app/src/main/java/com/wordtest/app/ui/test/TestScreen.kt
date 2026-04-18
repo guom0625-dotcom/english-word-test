@@ -36,8 +36,6 @@ import java.util.*
 fun TestScreen(
     sessionId: Long,
     silentMode: Boolean,
-    includeSynonyms: Boolean = false,
-    includeAntonyms: Boolean = false,
     repository: WordRepository,
     onFinished: (score: Int, total: Int) -> Unit
 ) {
@@ -45,7 +43,7 @@ fun TestScreen(
     val vm: TestViewModel = viewModel(factory = object : androidx.lifecycle.ViewModelProvider.Factory {
         override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
             @Suppress("UNCHECKED_CAST")
-            return TestViewModel(sessionId, repository, includeSynonyms, includeAntonyms) as T
+            return TestViewModel(sessionId, repository) as T
         }
     })
     val uiState by vm.uiState.collectAsState()
