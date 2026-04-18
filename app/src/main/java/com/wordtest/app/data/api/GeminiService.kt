@@ -3,7 +3,7 @@ package com.wordtest.app.data.api
 import android.graphics.Bitmap
 import android.util.Base64
 import android.util.Log
-import com.wordtest.app.BuildConfig
+import com.wordtest.app.data.ApiKeyStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
@@ -24,7 +24,7 @@ data class WordPair(
     val isAntonym: Boolean = false
 )
 
-class GeminiService {
+class GeminiService(private val apiKeyStore: ApiKeyStore) {
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
     private val client = OkHttpClient.Builder()
@@ -32,8 +32,8 @@ class GeminiService {
         .readTimeout(60, TimeUnit.SECONDS)
         .build()
 
-    private val apiUrl =
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${BuildConfig.GEMINI_API_KEY}"
+    private val apiUrl get() =
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKeyStore.getApiKey()}"
 
     suspend fun extractWordsFromImage(
         bitmap: Bitmap,

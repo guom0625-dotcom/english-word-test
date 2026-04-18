@@ -23,7 +23,7 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
-        buildConfigField("String", "GEMINI_API_KEY", "\"${localProperties.getProperty("GEMINI_API_KEY", "")}\"")
+        // API 키는 앱 내 사용자 입력으로 관리 (SharedPreferences)
     }
 
     buildTypes {

@@ -7,6 +7,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.wordtest.app.WordTestApplication
+import com.wordtest.app.ui.apikey.ApiKeyScreen
 import com.wordtest.app.ui.home.HomeScreen
 import com.wordtest.app.ui.importscreen.ImportScreen
 import com.wordtest.app.ui.result.ResultScreen
@@ -14,6 +15,9 @@ import com.wordtest.app.ui.test.TestScreen
 import com.wordtest.app.ui.wordlist.WordListScreen
 
 sealed class Screen(val route: String) {
+    object ApiKey : Screen("apikey/{firstLaunch}") {
+        fun createRoute(firstLaunch: Boolean) = "apikey/$firstLaunch"
+    }
     object Home : Screen("home")
     object Import : Screen("import")
     object WordList : Screen("wordlist/{sessionId}") {
@@ -30,8 +34,32 @@ sealed class Screen(val route: String) {
 @Composable
 fun AppNavigation(app: WordTestApplication) {
     val navController = rememberNavController()
+    val startDestination = if (app.apiKeyStore.hasApiKey())
+        Screen.Home.route
+    else
+        Screen.ApiKey.createRoute(true)
 
-    NavHost(navController = navController, startDestination = Screen.Home.route) {
+    NavHost(navController = navController, startDestination = startDestination) {
+        composable(
+            route = Screen.ApiKey.route,
+            arguments = listOf(navArgument("firstLaunch") { type = NavType.BoolType })
+        ) { backStackEntry ->
+            val firstLaunch = backStackEntry.arguments?.getBoolean("firstLaunch") ?: true
+            ApiKeyScreen(
+                isFirstLaunch = firstLaunch,
+                onSaved = {
+                    if (firstLaunch) {
+                        navController.navigate(Screen.Home.route) {
+                            popUpTo(Screen.ApiKey.createRoute(true)) { inclusive = true }
+                        }
+                    } else {
+                        navController.popBackStack()
+                    }
+                },
+                onBack = if (!firstLaunch) ({ navController.popBackStack() }) else null
+            )
+        }
+
         composable(Screen.Home.route) {
             HomeScreen(
                 repository = app.repository,
@@ -39,7 +67,8 @@ fun AppNavigation(app: WordTestApplication) {
                 onStartTest = { sessionId, silent ->
                     navController.navigate(Screen.Test.createRoute(sessionId, silent))
                 },
-                onEditWords = { sessionId -> navController.navigate(Screen.WordList.createRoute(sessionId)) }
+                onEditWords = { sessionId -> navController.navigate(Screen.WordList.createRoute(sessionId)) },
+                onApiKeySetting = { navController.navigate(Screen.ApiKey.createRoute(false)) }
             )
         }
 
@@ -105,9 +134,7 @@ fun AppNavigation(app: WordTestApplication) {
             val total = backStackEntry.arguments?.getInt("total") ?: 0
             val sessionId = backStackEntry.arguments?.getLong("sessionId") ?: 0L
             ResultScreen(
-                score = score,
-                total = total,
-                sessionId = sessionId,
+                score = score, total = total, sessionId = sessionId,
                 repository = app.repository,
                 onHome = {
                     navController.navigate(Screen.Home.route) {

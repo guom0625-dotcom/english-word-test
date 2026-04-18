@@ -7,6 +7,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -26,7 +27,8 @@ fun HomeScreen(
     repository: WordRepository,
     onNewSession: () -> Unit,
     onStartTest: (Long, Boolean) -> Unit,
-    onEditWords: (Long) -> Unit
+    onEditWords: (Long) -> Unit,
+    onApiKeySetting: () -> Unit
 ) {
     val vm: HomeViewModel = viewModel(factory = object : androidx.lifecycle.ViewModelProvider.Factory {
         override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
@@ -40,7 +42,14 @@ fun HomeScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("영단어 테스트", fontWeight = FontWeight.Bold) })
+            TopAppBar(
+                title = { Text("영단어 테스트", fontWeight = FontWeight.Bold) },
+                actions = {
+                    IconButton(onClick = onApiKeySetting) {
+                        Icon(Icons.Default.Key, contentDescription = "API 키 설정")
+                    }
+                }
+            )
         },
         floatingActionButton = {
             FloatingActionButton(onClick = onNewSession) {
