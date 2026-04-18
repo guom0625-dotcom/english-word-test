@@ -42,7 +42,7 @@ fun ResultScreen(
     sessionId: Long,
     repository: WordRepository,
     onHome: () -> Unit,
-    onRetry: () -> Unit
+    onRetry: (Boolean) -> Unit
 ) {
     val percentage = if (total > 0) (score * 100 / total) else 0
     val grade = when {
@@ -118,7 +118,7 @@ fun ResultScreen(
                         Spacer(Modifier.width(4.dp))
                         Text("홈으로")
                     }
-                    Button(onClick = onRetry, modifier = Modifier.weight(1f)) {
+                    Button(onClick = { onRetry(false) }, modifier = Modifier.weight(1f)) {
                         Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(4.dp))
                         Text("다시 테스트")

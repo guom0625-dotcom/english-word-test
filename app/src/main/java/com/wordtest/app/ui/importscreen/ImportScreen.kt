@@ -23,6 +23,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.wordtest.app.WordTestApplication
 import com.wordtest.app.data.api.GeminiService
 import java.text.SimpleDateFormat
 import java.util.*
@@ -35,7 +36,7 @@ fun ImportScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
-    val app = context.applicationContext as com.wordtest.app.WordTestApplication
+    val app = context.applicationContext as WordTestApplication
     val vm: ImportViewModel = viewModel(factory = object : androidx.lifecycle.ViewModelProvider.Factory {
         override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
             @Suppress("UNCHECKED_CAST")
@@ -46,6 +47,7 @@ fun ImportScreen(
     val uiState by vm.uiState.collectAsState()
     val images by vm.selectedImages.collectAsState()
     val includeSynonyms by vm.includeSynonyms.collectAsState()
+    val includeAntonyms by vm.includeAntonyms.collectAsState()
     var sessionName by remember {
         mutableStateOf("단어목록_${SimpleDateFormat("MMdd_HHmm", Locale.getDefault()).format(Date())}")
     }
@@ -76,7 +78,7 @@ fun ImportScreen(
                 title = { Text("이미지에서 단어 추출") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.Close, contentDescription = "뒤로")
+                        Icon(Icons.Default.Close, contentDescription = "닫기")
                     }
                 }
             )
@@ -129,29 +131,24 @@ fun ImportScreen(
                 }
             }
 
-            // 동의어 포함 옵션
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
-                )
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("동의어 포함", style = MaterialTheme.typography.bodyMedium)
-                        Text(
-                            "⊕ 기호가 붙은 동의어도 함께 추출",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Switch(
+            // 추출 옵션
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                    Text("추출 옵션", style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 4.dp))
+                    OptionRow(
+                        label = "유의어 포함 (= 기호)",
+                        description = "= 기호가 붙은 유의어 함께 추출",
                         checked = includeSynonyms,
                         onCheckedChange = { vm.toggleSynonyms(it) }
+                    )
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                    OptionRow(
+                        label = "반대어 포함 (<-> 기호)",
+                        description = "<-> 기호가 붙은 반대어 함께 추출",
+                        checked = includeAntonyms,
+                        onCheckedChange = { vm.toggleAntonyms(it) }
                     )
                 }
             }
@@ -183,9 +180,27 @@ fun ImportScreen(
             onDismissRequest = { vm.resetError() },
             title = { Text("오류") },
             text = { Text((uiState as ImportUiState.Error).message) },
-            confirmButton = {
-                TextButton(onClick = { vm.resetError() }) { Text("확인") }
-            }
+            confirmButton = { TextButton(onClick = { vm.resetError() }) { Text("확인") } }
         )
+    }
+}
+
+@Composable
+private fun OptionRow(
+    label: String,
+    description: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(label, style = MaterialTheme.typography.bodyMedium)
+            Text(description, style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }

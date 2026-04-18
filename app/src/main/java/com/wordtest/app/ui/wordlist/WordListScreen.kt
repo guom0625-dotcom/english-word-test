@@ -29,7 +29,7 @@ import com.wordtest.app.data.repository.WordRepository
 fun WordListScreen(
     sessionId: Long,
     repository: WordRepository,
-    onStartTest: () -> Unit,
+    onStartTest: (Boolean) -> Unit,
     onBack: () -> Unit
 ) {
     val vm: WordListViewModel = viewModel(factory = object : androidx.lifecycle.ViewModelProvider.Factory {
@@ -40,6 +40,7 @@ fun WordListScreen(
     })
     val words by vm.words.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
+    var showModeDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -60,7 +61,7 @@ fun WordListScreen(
         bottomBar = {
             Box(modifier = Modifier.padding(16.dp)) {
                 Button(
-                    onClick = onStartTest,
+                    onClick = { showModeDialog = true },
                     modifier = Modifier.fillMaxWidth(),
                     enabled = words.isNotEmpty()
                 ) {
@@ -82,33 +83,51 @@ fun WordListScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(words, key = { it.id }) { word ->
-                    WordItem(
-                        word = word,
-                        onUpdate = { vm.updateWord(it) },
-                        onDelete = { vm.deleteWord(it) }
-                    )
+                    WordItem(word = word, onUpdate = { vm.updateWord(it) }, onDelete = { vm.deleteWord(it) })
                 }
             }
         }
     }
 
+    if (showModeDialog) {
+        AlertDialog(
+            onDismissRequest = { showModeDialog = false },
+            title = { Text("테스트 모드 선택") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = { onStartTest(false); showModeDialog = false },
+                        modifier = Modifier.fillMaxWidth()) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("🎤 유음 모드", fontWeight = FontWeight.Bold)
+                            Text("앱이 한글 뜻을 말하면 영어로 말하기",
+                                style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                    OutlinedButton(onClick = { onStartTest(true); showModeDialog = false },
+                        modifier = Modifier.fillMaxWidth()) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("⌨️ 무음 모드", fontWeight = FontWeight.Bold)
+                            Text("한글 뜻을 보고 영어 단어 타이핑",
+                                style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = { TextButton(onClick = { showModeDialog = false }) { Text("취소") } }
+        )
+    }
+
     if (showAddDialog) {
         AddWordDialog(
-            onAdd = { eng, kor, pos ->
-                vm.addWord(eng, kor, pos)
-                showAddDialog = false
-            },
+            onAdd = { eng, kor, pos -> vm.addWord(eng, kor, pos); showAddDialog = false },
             onDismiss = { showAddDialog = false }
         )
     }
 }
 
 @Composable
-private fun WordItem(
-    word: WordEntity,
-    onUpdate: (WordEntity) -> Unit,
-    onDelete: (WordEntity) -> Unit
-) {
+private fun WordItem(word: WordEntity, onUpdate: (WordEntity) -> Unit, onDelete: (WordEntity) -> Unit) {
     var editMode by remember { mutableStateOf(false) }
     var english by remember(word) { mutableStateOf(word.english) }
     var korean by remember(word) { mutableStateOf(word.korean) }
@@ -118,42 +137,23 @@ private fun WordItem(
         if (editMode) {
             Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = partOfSpeech,
-                        onValueChange = { partOfSpeech = it },
-                        label = { Text("품사") },
-                        modifier = Modifier.width(80.dp),
-                        singleLine = true
-                    )
-                    OutlinedTextField(
-                        value = english,
-                        onValueChange = { english = it },
-                        label = { Text("영단어") },
-                        modifier = Modifier.weight(1f),
-                        singleLine = true
-                    )
+                    OutlinedTextField(value = partOfSpeech, onValueChange = { partOfSpeech = it },
+                        label = { Text("품사") }, modifier = Modifier.width(80.dp), singleLine = true)
+                    OutlinedTextField(value = english, onValueChange = { english = it },
+                        label = { Text("영단어") }, modifier = Modifier.weight(1f), singleLine = true)
                 }
-                OutlinedTextField(
-                    value = korean,
-                    onValueChange = { korean = it },
-                    label = { Text("한글 뜻") },
-                    modifier = Modifier.fillMaxWidth(),
-                    minLines = 1,
-                    maxLines = 3
-                )
+                OutlinedTextField(value = korean, onValueChange = { korean = it },
+                    label = { Text("한글 뜻") }, modifier = Modifier.fillMaxWidth(), minLines = 1, maxLines = 3)
                 Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
                     TextButton(onClick = {
-                        editMode = false
-                        english = word.english
-                        korean = word.korean
-                        partOfSpeech = word.partOfSpeech
+                        editMode = false; english = word.english; korean = word.korean; partOfSpeech = word.partOfSpeech
                     }) { Text("취소") }
                     Spacer(Modifier.width(8.dp))
                     Button(onClick = {
                         onUpdate(word.copy(english = english, korean = korean, partOfSpeech = partOfSpeech))
                         editMode = false
                     }) {
-                        Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.Check, null, Modifier.size(16.dp))
                         Spacer(Modifier.width(4.dp))
                         Text("저장")
                     }
@@ -161,45 +161,35 @@ private fun WordItem(
             }
         } else {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.Top
             ) {
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    // 동의어 뱃지
-                    if (word.isSynonym) {
+                    // 뱃지
+                    if (word.isSynonym || word.isAntonym) {
                         Surface(
-                            color = MaterialTheme.colorScheme.secondaryContainer,
+                            color = if (word.isAntonym) MaterialTheme.colorScheme.errorContainer
+                                    else MaterialTheme.colorScheme.secondaryContainer,
                             shape = MaterialTheme.shapes.small
                         ) {
                             Text(
-                                "동의어",
+                                if (word.isAntonym) "반대어" else "유의어",
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                                color = if (word.isAntonym) MaterialTheme.colorScheme.onErrorContainer
+                                        else MaterialTheme.colorScheme.onSecondaryContainer
                             )
                         }
                         Spacer(Modifier.height(2.dp))
                     }
-                    // 영단어
-                    Text(
-                        word.english,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        lineHeight = 20.sp
-                    )
-                    // 품사 + 한글뜻
+                    Text(word.english, style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold, lineHeight = 20.sp)
                     Text(
                         buildAnnotatedString {
                             if (word.partOfSpeech.isNotBlank()) {
-                                withStyle(SpanStyle(
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontStyle = FontStyle.Italic,
-                                    fontSize = 12.sp
-                                )) {
-                                    append(word.partOfSpeech)
-                                    append(" ")
+                                withStyle(SpanStyle(color = MaterialTheme.colorScheme.primary,
+                                    fontStyle = FontStyle.Italic, fontSize = 12.sp)) {
+                                    append(word.partOfSpeech); append(" ")
                                 }
                             }
                             append(word.korean)
@@ -211,11 +201,11 @@ private fun WordItem(
                 }
                 Row {
                     IconButton(onClick = { editMode = true }, modifier = Modifier.size(36.dp)) {
-                        Icon(Icons.Default.Edit, contentDescription = "편집", modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.Edit, null, Modifier.size(18.dp))
                     }
                     IconButton(onClick = { onDelete(word) }, modifier = Modifier.size(36.dp)) {
-                        Icon(Icons.Default.Delete, contentDescription = "삭제",
-                            tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.Delete, null, Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.error)
                     }
                 }
             }
@@ -228,42 +218,24 @@ private fun AddWordDialog(onAdd: (String, String, String) -> Unit, onDismiss: ()
     var english by remember { mutableStateOf("") }
     var korean by remember { mutableStateOf("") }
     var partOfSpeech by remember { mutableStateOf("") }
-
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("단어 추가") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = partOfSpeech,
-                        onValueChange = { partOfSpeech = it },
-                        label = { Text("품사") },
-                        modifier = Modifier.width(80.dp),
-                        singleLine = true
-                    )
-                    OutlinedTextField(
-                        value = english,
-                        onValueChange = { english = it },
-                        label = { Text("영단어") },
-                        modifier = Modifier.weight(1f),
-                        singleLine = true
-                    )
+                    OutlinedTextField(value = partOfSpeech, onValueChange = { partOfSpeech = it },
+                        label = { Text("품사") }, modifier = Modifier.width(80.dp), singleLine = true)
+                    OutlinedTextField(value = english, onValueChange = { english = it },
+                        label = { Text("영단어") }, modifier = Modifier.weight(1f), singleLine = true)
                 }
-                OutlinedTextField(
-                    value = korean,
-                    onValueChange = { korean = it },
-                    label = { Text("한글 뜻") },
-                    singleLine = true
-                )
+                OutlinedTextField(value = korean, onValueChange = { korean = it },
+                    label = { Text("한글 뜻") }, singleLine = true)
             }
         },
         confirmButton = {
             TextButton(
-                onClick = {
-                    if (english.isNotBlank() && korean.isNotBlank())
-                        onAdd(english.trim(), korean.trim(), partOfSpeech.trim())
-                },
+                onClick = { if (english.isNotBlank() && korean.isNotBlank()) onAdd(english.trim(), korean.trim(), partOfSpeech.trim()) },
                 enabled = english.isNotBlank() && korean.isNotBlank()
             ) { Text("추가") }
         },

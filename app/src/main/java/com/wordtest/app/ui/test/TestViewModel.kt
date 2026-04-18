@@ -48,7 +48,7 @@ class TestViewModel(
         }
     }
 
-    fun onVoiceResult(spoken: String) {
+    fun onAnswerSubmitted(spoken: String) {
         val current = engine.current ?: return
         if (engine.checkAnswer(spoken, current.entity.english)) {
             engine.onVoiceCorrect()

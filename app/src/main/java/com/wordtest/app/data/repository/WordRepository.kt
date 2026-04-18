@@ -23,7 +23,8 @@ class WordRepository(private val dao: WordDao) {
                 english = pair.english,
                 korean = pair.korean,
                 partOfSpeech = pair.partOfSpeech,
-                isSynonym = pair.isSynonym
+                isSynonym = pair.isSynonym,
+                isAntonym = pair.isAntonym
             )
         }
         dao.insertWords(entities)
@@ -31,16 +32,10 @@ class WordRepository(private val dao: WordDao) {
     }
 
     suspend fun updateWord(word: WordEntity) = dao.updateWord(word)
-
     suspend fun deleteWord(word: WordEntity) = dao.deleteWord(word)
 
     suspend fun deleteSession(sessionId: Long) {
         dao.deleteWordsBySession(sessionId)
         dao.deleteSession(sessionId)
-    }
-
-    suspend fun replaceWords(sessionId: Long, words: List<WordEntity>) {
-        dao.deleteWordsBySession(sessionId)
-        dao.insertWords(words.map { it.copy(sessionId = sessionId) })
     }
 }

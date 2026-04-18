@@ -25,7 +25,7 @@ import java.util.*
 fun HomeScreen(
     repository: WordRepository,
     onNewSession: () -> Unit,
-    onStartTest: (Long) -> Unit,
+    onStartTest: (Long, Boolean) -> Unit,
     onEditWords: (Long) -> Unit
 ) {
     val vm: HomeViewModel = viewModel(factory = object : androidx.lifecycle.ViewModelProvider.Factory {
@@ -36,6 +36,7 @@ fun HomeScreen(
     })
     val sessions by vm.sessions.collectAsState()
     var deleteTarget by remember { mutableStateOf<WordSessionEntity?>(null) }
+    var testTarget by remember { mutableStateOf<WordSessionEntity?>(null) }
 
     Scaffold(
         topBar = {
@@ -48,14 +49,12 @@ fun HomeScreen(
         }
     ) { padding ->
         if (sessions.isEmpty()) {
-            Box(
-                modifier = Modifier.fillMaxSize().padding(padding),
-                contentAlignment = Alignment.Center
-            ) {
+            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("단어 목록이 없습니다", style = MaterialTheme.typography.bodyLarge)
                     Spacer(Modifier.height(8.dp))
-                    Text("+ 버튼으로 이미지에서 단어를 추가하세요", style = MaterialTheme.typography.bodyMedium,
+                    Text("+ 버튼으로 이미지에서 단어를 추가하세요",
+                        style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
@@ -68,7 +67,7 @@ fun HomeScreen(
                 items(sessions) { session ->
                     SessionCard(
                         session = session,
-                        onStartTest = { onStartTest(session.id) },
+                        onStartTest = { testTarget = session },
                         onEdit = { onEditWords(session.id) },
                         onDelete = { deleteTarget = session }
                     )
@@ -77,22 +76,61 @@ fun HomeScreen(
         }
     }
 
+    // 테스트 모드 선택
+    testTarget?.let { session ->
+        ModeSelectDialog(
+            onVoice = { onStartTest(session.id, false); testTarget = null },
+            onSilent = { onStartTest(session.id, true); testTarget = null },
+            onDismiss = { testTarget = null }
+        )
+    }
+
+    // 삭제 확인
     deleteTarget?.let { session ->
         AlertDialog(
             onDismissRequest = { deleteTarget = null },
             title = { Text("삭제 확인") },
             text = { Text("'${session.name}' 단어 목록을 삭제할까요?") },
             confirmButton = {
-                TextButton(onClick = {
-                    vm.deleteSession(session.id)
-                    deleteTarget = null
-                }) { Text("삭제", color = MaterialTheme.colorScheme.error) }
+                TextButton(onClick = { vm.deleteSession(session.id); deleteTarget = null }) {
+                    Text("삭제", color = MaterialTheme.colorScheme.error)
+                }
             },
-            dismissButton = {
-                TextButton(onClick = { deleteTarget = null }) { Text("취소") }
-            }
+            dismissButton = { TextButton(onClick = { deleteTarget = null }) { Text("취소") } }
         )
     }
+}
+
+@Composable
+private fun ModeSelectDialog(
+    onVoice: () -> Unit,
+    onSilent: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("테스트 모드 선택") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = onVoice, modifier = Modifier.fillMaxWidth()) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("🎤 유음 모드", fontWeight = FontWeight.Bold)
+                        Text("앱이 한글 뜻을 말하면 영어로 말하기",
+                            style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+                OutlinedButton(onClick = onSilent, modifier = Modifier.fillMaxWidth()) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("⌨️ 무음 모드", fontWeight = FontWeight.Bold)
+                        Text("한글 뜻을 보고 영어 단어 타이핑",
+                            style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text("취소") } }
+    )
 }
 
 @Composable
@@ -103,15 +141,12 @@ private fun SessionCard(
     onDelete: () -> Unit
 ) {
     val dateFormat = SimpleDateFormat("yyyy.MM.dd HH:mm", Locale.getDefault())
-
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(session.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Text(
-                dateFormat.format(Date(session.createdAt)),
+            Text(dateFormat.format(Date(session.createdAt)),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = onEdit, modifier = Modifier.weight(1f)) {

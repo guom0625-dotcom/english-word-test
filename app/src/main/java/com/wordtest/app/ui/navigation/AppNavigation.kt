@@ -19,8 +19,8 @@ sealed class Screen(val route: String) {
     object WordList : Screen("wordlist/{sessionId}") {
         fun createRoute(sessionId: Long) = "wordlist/$sessionId"
     }
-    object Test : Screen("test/{sessionId}") {
-        fun createRoute(sessionId: Long) = "test/$sessionId"
+    object Test : Screen("test/{sessionId}/{silent}") {
+        fun createRoute(sessionId: Long, silent: Boolean) = "test/$sessionId/$silent"
     }
     object Result : Screen("result/{score}/{total}/{sessionId}") {
         fun createRoute(score: Int, total: Int, sessionId: Long) = "result/$score/$total/$sessionId"
@@ -36,7 +36,9 @@ fun AppNavigation(app: WordTestApplication) {
             HomeScreen(
                 repository = app.repository,
                 onNewSession = { navController.navigate(Screen.Import.route) },
-                onStartTest = { sessionId -> navController.navigate(Screen.Test.createRoute(sessionId)) },
+                onStartTest = { sessionId, silent ->
+                    navController.navigate(Screen.Test.createRoute(sessionId, silent))
+                },
                 onEditWords = { sessionId -> navController.navigate(Screen.WordList.createRoute(sessionId)) }
             )
         }
@@ -61,8 +63,8 @@ fun AppNavigation(app: WordTestApplication) {
             WordListScreen(
                 sessionId = sessionId,
                 repository = app.repository,
-                onStartTest = {
-                    navController.navigate(Screen.Test.createRoute(sessionId)) {
+                onStartTest = { silent ->
+                    navController.navigate(Screen.Test.createRoute(sessionId, silent)) {
                         popUpTo(Screen.Home.route)
                     }
                 },
@@ -72,11 +74,16 @@ fun AppNavigation(app: WordTestApplication) {
 
         composable(
             route = Screen.Test.route,
-            arguments = listOf(navArgument("sessionId") { type = NavType.LongType })
+            arguments = listOf(
+                navArgument("sessionId") { type = NavType.LongType },
+                navArgument("silent") { type = NavType.BoolType }
+            )
         ) { backStackEntry ->
             val sessionId = backStackEntry.arguments?.getLong("sessionId") ?: return@composable
+            val silent = backStackEntry.arguments?.getBoolean("silent") ?: false
             TestScreen(
                 sessionId = sessionId,
+                silentMode = silent,
                 repository = app.repository,
                 onFinished = { score, total ->
                     navController.navigate(Screen.Result.createRoute(score, total, sessionId)) {
@@ -107,8 +114,8 @@ fun AppNavigation(app: WordTestApplication) {
                         popUpTo(Screen.Home.route) { inclusive = true }
                     }
                 },
-                onRetry = {
-                    navController.navigate(Screen.Test.createRoute(sessionId)) {
+                onRetry = { silent ->
+                    navController.navigate(Screen.Test.createRoute(sessionId, silent)) {
                         popUpTo(Screen.Home.route)
                     }
                 }

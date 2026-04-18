@@ -6,17 +6,22 @@ import android.speech.RecognizerIntent
 import android.speech.tts.TextToSpeech
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -28,6 +33,7 @@ import java.util.*
 @Composable
 fun TestScreen(
     sessionId: Long,
+    silentMode: Boolean,
     repository: WordRepository,
     onFinished: (score: Int, total: Int) -> Unit
 ) {
@@ -44,10 +50,12 @@ fun TestScreen(
     var ttsReady by remember { mutableStateOf(false) }
 
     DisposableEffect(Unit) {
-        tts = TextToSpeech(context) { status ->
-            if (status == TextToSpeech.SUCCESS) {
-                tts?.language = Locale.KOREAN
-                ttsReady = true
+        if (!silentMode) {
+            tts = TextToSpeech(context) { status ->
+                if (status == TextToSpeech.SUCCESS) {
+                    tts?.language = Locale.KOREAN
+                    ttsReady = true
+                }
             }
         }
         onDispose { tts?.shutdown() }
@@ -59,14 +67,13 @@ fun TestScreen(
         if (result.resultCode == Activity.RESULT_OK) {
             val matches = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
             val spoken = matches?.firstOrNull() ?: ""
-            vm.onVoiceResult(spoken)
+            vm.onAnswerSubmitted(spoken)
         }
     }
 
     fun speakKorean(text: String) {
-        // 품사(v., n., a. 등) 제거 후 TTS 발화
-        val cleaned = text.replace(Regex("^[a-z]+\\.\\s*"), "")
-        tts?.speak(cleaned, TextToSpeech.QUEUE_FLUSH, null, "utterance_id")
+        val cleaned = text.replace(Regex("^[a-z]+\\./?[a-z]*\\.?\\s*"), "")
+        tts?.speak(cleaned, TextToSpeech.QUEUE_FLUSH, null, "tts")
     }
 
     fun startListening() {
@@ -80,8 +87,8 @@ fun TestScreen(
 
     LaunchedEffect(uiState) {
         when (val state = uiState) {
-            is TestUiState.Voice -> speakKorean(state.word.entity.korean)
-            is TestUiState.MultipleChoice -> speakKorean(state.word.entity.korean)
+            is TestUiState.Voice -> if (!silentMode) speakKorean(state.word.entity.korean)
+            is TestUiState.MultipleChoice -> if (!silentMode) speakKorean(state.word.entity.korean)
             is TestUiState.Finished -> onFinished(state.score, state.total)
             else -> Unit
         }
@@ -94,19 +101,31 @@ fun TestScreen(
             }
         }
         is TestUiState.Voice -> {
-            VoiceTestScreen(
-                korean = state.word.entity.korean,
-                wrongCount = state.wrongCount,
-                onMicClick = { startListening() },
-                onSpeak = { speakKorean(state.word.entity.korean) }
-            )
+            if (silentMode) {
+                SilentTestScreen(
+                    korean = state.word.entity.korean,
+                    partOfSpeech = state.word.entity.partOfSpeech,
+                    wrongCount = state.wrongCount,
+                    onSubmit = { vm.onAnswerSubmitted(it) }
+                )
+            } else {
+                VoiceTestScreen(
+                    korean = state.word.entity.korean,
+                    partOfSpeech = state.word.entity.partOfSpeech,
+                    wrongCount = state.wrongCount,
+                    onMicClick = { startListening() },
+                    onSpeak = { speakKorean(state.word.entity.korean) }
+                )
+            }
         }
         is TestUiState.MultipleChoice -> {
             MultipleChoiceScreen(
                 korean = state.word.entity.korean,
+                partOfSpeech = state.word.entity.partOfSpeech,
                 choices = state.choices,
+                silentMode = silentMode,
                 onSelected = { vm.onMultipleChoiceSelected(it) },
-                onSpeak = { speakKorean(state.word.entity.korean) }
+                onSpeak = { if (!silentMode) speakKorean(state.word.entity.korean) }
             )
         }
         is TestUiState.Finished -> {
@@ -120,6 +139,7 @@ fun TestScreen(
 @Composable
 private fun VoiceTestScreen(
     korean: String,
+    partOfSpeech: String,
     wrongCount: Int,
     onMicClick: () -> Unit,
     onSpeak: () -> Unit
@@ -131,50 +151,107 @@ private fun VoiceTestScreen(
     ) {
         if (wrongCount > 0) {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
-                Text(
-                    "틀린 횟수: $wrongCount / 2",
+                Text("틀린 횟수: $wrongCount / 2",
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                    color = MaterialTheme.colorScheme.onErrorContainer
-                )
+                    color = MaterialTheme.colorScheme.onErrorContainer)
             }
             Spacer(Modifier.height(16.dp))
         }
-
         Text("이 단어의 영어는?", style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.height(24.dp))
-        Text(
-            korean,
-            fontSize = 32.sp,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
-            lineHeight = 42.sp
-        )
-        Spacer(Modifier.height(32.dp))
-
-        TextButton(onClick = onSpeak) {
-            Text("다시 듣기")
+        Spacer(Modifier.height(16.dp))
+        if (partOfSpeech.isNotBlank()) {
+            Text(partOfSpeech, style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold)
         }
-        Spacer(Modifier.height(24.dp))
-
-        Button(
-            onClick = onMicClick,
-            modifier = Modifier.size(80.dp),
-            shape = CircleShape,
-            contentPadding = PaddingValues(0.dp)
-        ) {
+        Spacer(Modifier.height(8.dp))
+        Text(korean, fontSize = 32.sp, fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center, lineHeight = 42.sp)
+        Spacer(Modifier.height(32.dp))
+        TextButton(onClick = onSpeak) { Text("다시 듣기") }
+        Spacer(Modifier.height(16.dp))
+        Button(onClick = onMicClick, modifier = Modifier.size(80.dp),
+            shape = CircleShape, contentPadding = PaddingValues(0.dp)) {
             Icon(Icons.Default.Mic, contentDescription = "말하기", modifier = Modifier.size(36.dp))
         }
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(12.dp))
         Text("마이크를 눌러 영어로 말하세요", style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
 @Composable
+private fun SilentTestScreen(
+    korean: String,
+    partOfSpeech: String,
+    wrongCount: Int,
+    onSubmit: (String) -> Unit
+) {
+    var input by remember { mutableStateOf("") }
+    var showWrong by remember { mutableStateOf(false) }
+    val focusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(korean) {
+        input = ""
+        showWrong = false
+        focusRequester.requestFocus()
+    }
+
+    fun submit() {
+        if (input.isBlank()) return
+        onSubmit(input.trim())
+        input = ""
+        showWrong = true
+    }
+
+    Column(
+        modifier = Modifier.fillMaxSize().padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        if (wrongCount > 0) {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
+                Text("틀린 횟수: $wrongCount / 2",
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    color = MaterialTheme.colorScheme.onErrorContainer)
+            }
+            Spacer(Modifier.height(16.dp))
+        }
+        Text("이 단어의 영어는?", style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(16.dp))
+        if (partOfSpeech.isNotBlank()) {
+            Text(partOfSpeech, style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(korean, fontSize = 32.sp, fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center, lineHeight = 42.sp)
+        Spacer(Modifier.height(40.dp))
+        OutlinedTextField(
+            value = input,
+            onValueChange = { input = it },
+            label = { Text("영단어 입력") },
+            modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { submit() }),
+            trailingIcon = {
+                IconButton(onClick = { submit() }, enabled = input.isNotBlank()) {
+                    Icon(Icons.Default.Send, contentDescription = "제출")
+                }
+            }
+        )
+    }
+}
+
+@Composable
 private fun MultipleChoiceScreen(
     korean: String,
+    partOfSpeech: String,
     choices: List<WordEntity>,
+    silentMode: Boolean,
     onSelected: (WordEntity) -> Unit,
     onSpeak: () -> Unit
 ) {
@@ -184,27 +261,26 @@ private fun MultipleChoiceScreen(
         verticalArrangement = Arrangement.Center
     ) {
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
-            Text(
-                "2번 틀렸습니다. 보기에서 고르세요",
+            Text("2번 틀렸습니다. 보기에서 고르세요",
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                color = MaterialTheme.colorScheme.onErrorContainer
-            )
+                color = MaterialTheme.colorScheme.onErrorContainer)
         }
         Spacer(Modifier.height(24.dp))
         Text("이 단어의 영어는?", style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.height(16.dp))
-        Text(
-            korean,
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
-            lineHeight = 38.sp
-        )
         Spacer(Modifier.height(8.dp))
-        TextButton(onClick = onSpeak) { Text("다시 듣기") }
-        Spacer(Modifier.height(32.dp))
-
+        if (partOfSpeech.isNotBlank()) {
+            Text(partOfSpeech, style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(korean, fontSize = 28.sp, fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center, lineHeight = 38.sp)
+        if (!silentMode) {
+            Spacer(Modifier.height(4.dp))
+            TextButton(onClick = onSpeak) { Text("다시 듣기") }
+        }
+        Spacer(Modifier.height(24.dp))
         choices.forEach { choice ->
             OutlinedButton(
                 onClick = { onSelected(choice) },
