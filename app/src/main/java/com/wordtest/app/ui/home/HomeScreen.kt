@@ -124,14 +124,14 @@ private fun ModeSelectDialog(
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = { onStart(false) }, modifier = Modifier.fillMaxWidth()) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("🎤 유음 모드", fontWeight = FontWeight.Bold)
+                        Text("🎤 말하기 모드", fontWeight = FontWeight.Bold)
                         Text("앱이 한글 뜻을 말하면 영어로 말하기",
                             style = MaterialTheme.typography.bodySmall)
                     }
                 }
                 OutlinedButton(onClick = { onStart(true) }, modifier = Modifier.fillMaxWidth()) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("⌨️ 무음 모드", fontWeight = FontWeight.Bold)
+                        Text("⌨️ 타이핑 모드", fontWeight = FontWeight.Bold)
                         Text("한글 뜻을 보고 영어 단어 타이핑",
                             style = MaterialTheme.typography.bodySmall)
                     }

@@ -1,18 +1,33 @@
 package com.wordtest.app.ui.wordlist
 
+import android.graphics.Bitmap
+import android.graphics.ImageDecoder
+import android.net.Uri
+import android.os.Build
+import android.provider.MediaStore
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -22,6 +37,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.wordtest.app.data.api.GeminiService
 import com.wordtest.app.data.db.WordEntity
 import com.wordtest.app.data.repository.WordRepository
 
@@ -30,26 +46,55 @@ import com.wordtest.app.data.repository.WordRepository
 fun WordListScreen(
     sessionId: Long,
     repository: WordRepository,
-    onStartTest: (Boolean, Boolean, Boolean) -> Unit,
+    geminiService: GeminiService,
+    onStartTest: (Boolean) -> Unit,
     onBack: () -> Unit
 ) {
+    val context = LocalContext.current
     val vm: WordListViewModel = viewModel(factory = object : androidx.lifecycle.ViewModelProvider.Factory {
         override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
             @Suppress("UNCHECKED_CAST")
-            return WordListViewModel(sessionId, repository) as T
+            return WordListViewModel(sessionId, repository, geminiService) as T
         }
     })
     val words by vm.words.collectAsState()
+    val sessionName by vm.sessionName.collectAsState()
+    val isProcessing by vm.isProcessing.collectAsState()
+    val imageError by vm.imageError.collectAsState()
+
+    var showAddChoice by remember { mutableStateOf(false) }
     var showAddDialog by remember { mutableStateOf(false) }
     var showModeDialog by remember { mutableStateOf(false) }
+    var showRenameDialog by remember { mutableStateOf(false) }
 
-    // 스위치 상태: 해당 카테고리 단어가 모두 enabled인지 여부로 파생
+    // 사진 추가용 상태
+    var pendingImages by remember { mutableStateOf<List<Bitmap>>(emptyList()) }
+    var showImageConfirm by remember { mutableStateOf(false) }
+
+    val imagePicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetMultipleContents()
+    ) { uris: List<Uri> ->
+        val bitmaps = uris.mapNotNull { uri ->
+            runCatching {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    ImageDecoder.decodeBitmap(ImageDecoder.createSource(context.contentResolver, uri))
+                } else {
+                    @Suppress("DEPRECATION")
+                    MediaStore.Images.Media.getBitmap(context.contentResolver, uri)
+                }
+            }.getOrNull()
+        }
+        if (bitmaps.isNotEmpty()) {
+            pendingImages = bitmaps
+            showImageConfirm = true
+        }
+    }
+
     val synonymWords = words.filter { it.isSynonym }
     val antonymWords = words.filter { it.isAntonym }
     val includeSynonyms = synonymWords.isNotEmpty() && synonymWords.all { it.isEnabled }
     val includeAntonyms = antonymWords.isNotEmpty() && antonymWords.all { it.isEnabled }
 
-    // 전체선택은 스위치가 켜진 카테고리만 대상
     val inScopeWords = words.filter { word ->
         when {
             word.isSynonym -> includeSynonyms
@@ -68,38 +113,36 @@ fun WordListScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("단어 목록 (선택 $enabledCount / ${totalCount}개)") },
+                title = { Text("$sessionName (선택 $enabledCount / ${totalCount}개)") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.Check, contentDescription = "완료")
                     }
                 },
                 actions = {
-                    IconButton(onClick = { showAddDialog = true }) {
+                    IconButton(onClick = { showRenameDialog = true }) {
+                        Icon(Icons.Default.Edit, contentDescription = "이름 변경")
+                    }
+                    IconButton(onClick = { showAddChoice = true }) {
                         Icon(Icons.Default.Add, contentDescription = "단어 추가")
                     }
                 }
             )
         },
         bottomBar = {
-            Column(modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                // 유의어/반대어 옵션
+            Column(
+                modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             Text("유의어 포함", modifier = Modifier.weight(1f),
                                 style = MaterialTheme.typography.bodyMedium)
                             Switch(checked = includeSynonyms, onCheckedChange = { vm.setSynonymsEnabled(it) })
                         }
                         HorizontalDivider()
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             Text("반대어 포함", modifier = Modifier.weight(1f),
                                 style = MaterialTheme.typography.bodyMedium)
                             Switch(checked = includeAntonyms, onCheckedChange = { vm.setAntonymsEnabled(it) })
@@ -141,10 +184,7 @@ fun WordListScreen(
                             }
                         )
                         Text(
-                            when (selectAllState) {
-                                ToggleableState.On -> "전체 선택 해제"
-                                else -> "전체 선택"
-                            },
+                            if (selectAllState == ToggleableState.On) "전체 선택 해제" else "전체 선택",
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
@@ -162,28 +202,146 @@ fun WordListScreen(
         }
     }
 
+    // 처리 중 오버레이
+    if (isProcessing) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Card {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    CircularProgressIndicator()
+                    Text("AI가 단어 인식 중...")
+                }
+            }
+        }
+    }
+
+    // 단어 추가 방식 선택
+    if (showAddChoice) {
+        AlertDialog(
+            onDismissRequest = { showAddChoice = false },
+            title = { Text("단어 추가") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = { showAddChoice = false; showAddDialog = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.Edit, null, Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("직접 입력")
+                    }
+                    OutlinedButton(
+                        onClick = { showAddChoice = false; imagePicker.launch("image/*") },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.Image, null, Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("사진으로 추가")
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = { TextButton(onClick = { showAddChoice = false }) { Text("취소") } }
+        )
+    }
+
+    // 사진 선택 후 확인
+    if (showImageConfirm && pendingImages.isNotEmpty()) {
+        AlertDialog(
+            onDismissRequest = { showImageConfirm = false; pendingImages = emptyList() },
+            title = { Text("사진 확인") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("선택된 이미지 ${pendingImages.size}장에서 단어를 추출합니다.")
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        itemsIndexed(pendingImages) { _, bitmap ->
+                            Image(
+                                bitmap = bitmap.asImageBitmap(),
+                                contentDescription = null,
+                                modifier = Modifier.size(100.dp),
+                                contentScale = ContentScale.Crop
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    vm.addWordsFromImages(pendingImages)
+                    pendingImages = emptyList()
+                    showImageConfirm = false
+                }) { Text("추출 시작") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showImageConfirm = false; pendingImages = emptyList() }) { Text("취소") }
+            }
+        )
+    }
+
+    // 이름 변경 다이얼로그
+    if (showRenameDialog) {
+        var nameInput by remember(sessionName) { mutableStateOf(sessionName) }
+        AlertDialog(
+            onDismissRequest = { showRenameDialog = false },
+            title = { Text("이름 변경") },
+            text = {
+                OutlinedTextField(
+                    value = nameInput,
+                    onValueChange = { nameInput = it },
+                    label = { Text("단어 목록 이름") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (nameInput.isNotBlank()) vm.renameSession(nameInput.trim())
+                        showRenameDialog = false
+                    },
+                    enabled = nameInput.isNotBlank()
+                ) { Text("저장") }
+            },
+            dismissButton = { TextButton(onClick = { showRenameDialog = false }) { Text("취소") } }
+        )
+    }
+
+    // 테스트 모드 선택
     if (showModeDialog) {
         AlertDialog(
             onDismissRequest = { showModeDialog = false },
             title = { Text("테스트 모드 선택") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "선택된 단어: $enabledCount / ${totalCount}개",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold
+                    )
+                    HorizontalDivider()
                     OutlinedButton(
-                        onClick = { onStartTest(false, includeSynonyms, includeAntonyms); showModeDialog = false },
+                        onClick = { onStartTest(false); showModeDialog = false },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("🎤 유음 모드", fontWeight = FontWeight.Bold)
+                            Text("🎤 말하기 모드", fontWeight = FontWeight.Bold)
                             Text("앱이 한글 뜻을 말하면 영어로 말하기",
                                 style = MaterialTheme.typography.bodySmall)
                         }
                     }
                     OutlinedButton(
-                        onClick = { onStartTest(true, includeSynonyms, includeAntonyms); showModeDialog = false },
+                        onClick = { onStartTest(true); showModeDialog = false },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("⌨️ 무음 모드", fontWeight = FontWeight.Bold)
+                            Text("⌨️ 타이핑 모드", fontWeight = FontWeight.Bold)
                             Text("한글 뜻을 보고 영어 단어 타이핑",
                                 style = MaterialTheme.typography.bodySmall)
                         }
@@ -192,6 +350,16 @@ fun WordListScreen(
             },
             confirmButton = {},
             dismissButton = { TextButton(onClick = { showModeDialog = false }) { Text("취소") } }
+        )
+    }
+
+    // 이미지 처리 오류
+    imageError?.let { msg ->
+        AlertDialog(
+            onDismissRequest = { vm.clearImageError() },
+            title = { Text("오류") },
+            text = { Text(msg) },
+            confirmButton = { TextButton(onClick = { vm.clearImageError() }) { Text("확인") } }
         )
     }
 
@@ -252,10 +420,7 @@ private fun WordItem(
                 modifier = Modifier.fillMaxWidth().padding(start = 4.dp, end = 12.dp, top = 8.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Checkbox(
-                    checked = word.isEnabled,
-                    onCheckedChange = { onToggleEnabled() }
-                )
+                Checkbox(checked = word.isEnabled, onCheckedChange = { onToggleEnabled() })
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     if (word.isSynonym || word.isAntonym) {
                         Surface(

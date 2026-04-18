@@ -32,6 +32,12 @@ interface WordDao {
     @Query("DELETE FROM word_sessions WHERE id = :sessionId")
     suspend fun deleteSession(sessionId: Long)
 
+    @Query("UPDATE word_sessions SET name = :name WHERE id = :sessionId")
+    suspend fun updateSessionName(sessionId: Long, name: String)
+
+    @Query("SELECT * FROM word_sessions WHERE id = :sessionId")
+    fun getSession(sessionId: Long): Flow<WordSessionEntity?>
+
     @Query("SELECT COUNT(*) FROM words WHERE sessionId = :sessionId")
     suspend fun getWordCount(sessionId: Long): Int
 }

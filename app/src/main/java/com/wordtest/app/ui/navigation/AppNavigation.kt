@@ -92,7 +92,8 @@ fun AppNavigation(app: WordTestApplication) {
             WordListScreen(
                 sessionId = sessionId,
                 repository = app.repository,
-                onStartTest = { silent, _, _ ->
+                geminiService = app.geminiService,
+                onStartTest = { silent ->
                     navController.navigate(Screen.Test.createRoute(sessionId, silent)) {
                         popUpTo(Screen.Home.route)
                     }

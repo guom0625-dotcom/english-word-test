@@ -1,19 +1,35 @@
 package com.wordtest.app.ui.wordlist
 
+import android.graphics.Bitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.wordtest.app.data.api.GeminiService
 import com.wordtest.app.data.db.WordEntity
 import com.wordtest.app.data.repository.WordRepository
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class WordListViewModel(
     private val sessionId: Long,
-    private val repository: WordRepository
+    private val repository: WordRepository,
+    private val geminiService: GeminiService
 ) : ViewModel() {
+    val sessionName = repository.getSession(sessionId)
+        .map { it?.name ?: "" }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
+
     val words = repository.getWordsBySession(sessionId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private val _isProcessing = MutableStateFlow(false)
+    val isProcessing = _isProcessing.asStateFlow()
+
+    private val _imageError = MutableStateFlow<String?>(null)
+    val imageError = _imageError.asStateFlow()
 
     fun updateWord(word: WordEntity) {
         viewModelScope.launch { repository.updateWord(word) }
@@ -54,6 +70,10 @@ class WordListViewModel(
         }
     }
 
+    fun renameSession(name: String) {
+        viewModelScope.launch { repository.renameSession(sessionId, name) }
+    }
+
     fun addWord(english: String, korean: String, partOfSpeech: String = "") {
         viewModelScope.launch {
             repository.updateWord(
@@ -61,4 +81,31 @@ class WordListViewModel(
             )
         }
     }
+
+    fun addWordsFromImages(bitmaps: List<Bitmap>) {
+        viewModelScope.launch {
+            _isProcessing.value = true
+            for (bitmap in bitmaps) {
+                geminiService.extractWordsFromImage(bitmap)
+                    .onSuccess { pairs ->
+                        pairs.forEach { pair ->
+                            repository.updateWord(
+                                WordEntity(
+                                    sessionId = sessionId,
+                                    english = pair.english,
+                                    korean = pair.korean,
+                                    partOfSpeech = pair.partOfSpeech,
+                                    isSynonym = pair.isSynonym,
+                                    isAntonym = pair.isAntonym
+                                )
+                            )
+                        }
+                    }
+                    .onFailure { _imageError.value = "이미지 처리 실패: ${it.message}" }
+            }
+            _isProcessing.value = false
+        }
+    }
+
+    fun clearImageError() { _imageError.value = null }
 }
