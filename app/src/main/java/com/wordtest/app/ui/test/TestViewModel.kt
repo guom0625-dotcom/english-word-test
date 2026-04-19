@@ -19,7 +19,9 @@ sealed class TestUiState {
 
 class TestViewModel(
     private val sessionId: Long,
-    private val repository: WordRepository
+    private val repository: WordRepository,
+    private val ordered: Boolean = false,
+    private val multipleChoiceOnly: Boolean = false
 ) : ViewModel() {
     private val _uiState = MutableStateFlow<TestUiState>(TestUiState.Loading)
     val uiState = _uiState.asStateFlow()
@@ -31,11 +33,8 @@ class TestViewModel(
         viewModelScope.launch {
             allWords = repository.getWordsBySessionOnce(sessionId)
             val testWords = allWords.filter { it.isEnabled }
-            if (testWords.isEmpty()) {
-                engine = TestEngine(allWords)
-            } else {
-                engine = TestEngine(testWords)
-            }
+            engine = if (testWords.isEmpty()) TestEngine(allWords, ordered, multipleChoiceOnly)
+                     else TestEngine(testWords, ordered, multipleChoiceOnly)
             showCurrent()
         }
     }

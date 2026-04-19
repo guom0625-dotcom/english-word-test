@@ -2,8 +2,11 @@ package com.wordtest.app.ui.test
 
 import android.app.Activity
 import android.content.Intent
+import android.os.Handler
+import android.os.Looper
 import android.speech.RecognizerIntent
 import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -36,6 +39,9 @@ import java.util.*
 fun TestScreen(
     sessionId: Long,
     silentMode: Boolean,
+    initialAutoMic: Boolean = false,
+    ordered: Boolean = false,
+    multipleChoiceOnly: Boolean = false,
     repository: WordRepository,
     onFinished: (score: Int, total: Int) -> Unit
 ) {
@@ -43,17 +49,40 @@ fun TestScreen(
     val vm: TestViewModel = viewModel(factory = object : androidx.lifecycle.ViewModelProvider.Factory {
         override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
             @Suppress("UNCHECKED_CAST")
-            return TestViewModel(sessionId, repository) as T
+            return TestViewModel(sessionId, repository, ordered, multipleChoiceOnly) as T
         }
     })
     val uiState by vm.uiState.collectAsState()
 
     var tts by remember { mutableStateOf<TextToSpeech?>(null) }
     var ttsReady by remember { mutableStateOf(false) }
+    var autoListen by remember { mutableStateOf(initialAutoMic) }
+    val mainHandler = remember { Handler(Looper.getMainLooper()) }
+
+    val speechLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val matches = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+            vm.onAnswerSubmitted(matches ?: listOf(""))
+        } else {
+            autoListen = false
+        }
+    }
+
+    fun startListeningFn() {
+        tts?.stop()
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.ENGLISH.toString())
+            putExtra(RecognizerIntent.EXTRA_PROMPT, "영어로 말해주세요")
+        }
+        speechLauncher.launch(intent)
+    }
 
     fun speakKorean(text: String) {
         val cleaned = text.replace(Regex("^[a-z]+\\./?[a-z]*\\.?\\s*"), "")
-        tts?.speak(cleaned, TextToSpeech.QUEUE_FLUSH, null, "tts")
+        tts?.speak(cleaned, TextToSpeech.QUEUE_FLUSH, null, "tts_auto")
     }
 
     DisposableEffect(Unit) {
@@ -61,6 +90,16 @@ fun TestScreen(
             tts = TextToSpeech(context) { status ->
                 if (status == TextToSpeech.SUCCESS) {
                     tts?.language = Locale.KOREAN
+                    tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                        override fun onStart(utteranceId: String?) {}
+                        override fun onDone(utteranceId: String?) {
+                            if (autoListen && vm.uiState.value is TestUiState.Voice) {
+                                mainHandler.post { startListeningFn() }
+                            }
+                        }
+                        @Deprecated("Deprecated in Java")
+                        override fun onError(utteranceId: String?) {}
+                    })
                     ttsReady = true
                 }
             }
@@ -72,11 +111,7 @@ fun TestScreen(
     LaunchedEffect(ttsReady) {
         if (!silentMode && ttsReady) {
             val state = uiState
-            when (state) {
-                is TestUiState.Voice -> speakKorean(state.word.entity.korean)
-                is TestUiState.MultipleChoice -> speakKorean(state.word.entity.korean)
-                else -> Unit
-            }
+            if (state is TestUiState.Voice) speakKorean(state.word.entity.korean)
         }
     }
 
@@ -84,28 +119,14 @@ fun TestScreen(
     LaunchedEffect(uiState) {
         when (val state = uiState) {
             is TestUiState.Voice -> if (!silentMode && ttsReady) speakKorean(state.word.entity.korean)
-            is TestUiState.MultipleChoice -> if (!silentMode && ttsReady) speakKorean(state.word.entity.korean)
             is TestUiState.Finished -> onFinished(state.score, state.total)
             else -> Unit
         }
     }
 
-    val speechLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            val matches = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
-            vm.onAnswerSubmitted(matches ?: listOf(""))
-        }
-    }
-
-    fun startListening() {
-        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.ENGLISH.toString())
-            putExtra(RecognizerIntent.EXTRA_PROMPT, "영어로 말해주세요")
-        }
-        speechLauncher.launch(intent)
+    // 단어 바뀔 때 autoListen 복원 (Voice일 때만, initialAutoMic 기준)
+    LaunchedEffect(uiState) {
+        if (uiState is TestUiState.Voice) autoListen = initialAutoMic
     }
 
     when (val state = uiState) {
@@ -127,7 +148,8 @@ fun TestScreen(
                     korean = state.word.entity.korean,
                     partOfSpeech = state.word.entity.partOfSpeech,
                     wrongCount = state.wrongCount,
-                    onMicClick = { startListening() },
+                    waitingForMic = !autoListen,
+                    onMicClick = { autoListen = true; startListeningFn() },
                     onSpeak = { speakKorean(state.word.entity.korean) }
                 )
             }
@@ -155,6 +177,7 @@ private fun VoiceTestScreen(
     korean: String,
     partOfSpeech: String,
     wrongCount: Int,
+    waitingForMic: Boolean,
     onMicClick: () -> Unit,
     onSpeak: () -> Unit
 ) {
@@ -189,8 +212,11 @@ private fun VoiceTestScreen(
             Icon(Icons.Default.Mic, contentDescription = "말하기", modifier = Modifier.size(36.dp))
         }
         Spacer(Modifier.height(12.dp))
-        Text("마이크를 눌러 영어로 말하세요", style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            if (waitingForMic) "마이크를 눌러 말하세요" else "듣는 중... (취소하면 수동 전환)",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 

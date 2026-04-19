@@ -28,7 +28,8 @@ class WordListViewModel(
     private val _isProcessing = MutableStateFlow(false)
     val isProcessing = _isProcessing.asStateFlow()
 
-    private val _progress = MutableStateFlow<Pair<Int, Int>?>(null)
+    // Triple: (현재 이미지 번호, 전체, 현재 이미지 진행률 0~1f)
+    private val _progress = MutableStateFlow<Triple<Int, Int, Float>?>(null)
     val progress = _progress.asStateFlow()
 
     private val _imageError = MutableStateFlow<String?>(null)
@@ -91,8 +92,10 @@ class WordListViewModel(
             val total = bitmaps.size
             var skipped = 0
             for ((index, bitmap) in bitmaps.withIndex()) {
-                _progress.value = Pair(index + 1, total)
-                geminiService.extractWordsFromImage(bitmap)
+                _progress.value = Triple(index + 1, total, 0f)
+                geminiService.extractWordsFromImage(bitmap) { p ->
+                    _progress.value = Triple(index + 1, total, p)
+                }
                     .onSuccess { pairs ->
                         pairs.forEach { pair ->
                             val added = repository.addWordIfNew(

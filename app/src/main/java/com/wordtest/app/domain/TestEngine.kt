@@ -9,8 +9,8 @@ data class TestWord(
     var answered: Boolean = false
 )
 
-class TestEngine(words: List<WordEntity>) {
-    val testWords: List<TestWord> = words.shuffled().map { TestWord(it) }
+class TestEngine(words: List<WordEntity>, ordered: Boolean = false, private val multipleChoiceOnly: Boolean = false) {
+    val testWords: List<TestWord> = (if (ordered) words else words.shuffled()).map { TestWord(it) }
     private var currentIndex = 0
 
     val current: TestWord? get() = testWords.getOrNull(currentIndex)
@@ -28,7 +28,7 @@ class TestEngine(words: List<WordEntity>) {
         current?.wrongCount = (current?.wrongCount ?: 0) + 1
     }
 
-    fun needsMultipleChoice(): Boolean = (current?.wrongCount ?: 0) >= 2
+    fun needsMultipleChoice(): Boolean = multipleChoiceOnly || (current?.wrongCount ?: 0) >= 2
 
     fun onMultipleChoiceAnswered(isCorrect: Boolean) {
         current?.apply { correct = isCorrect; answered = true }

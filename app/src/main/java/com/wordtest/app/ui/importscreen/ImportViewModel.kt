@@ -23,7 +23,8 @@ class ImportViewModel(
     private val _uiState = MutableStateFlow<ImportUiState>(ImportUiState.Idle)
     val uiState = _uiState.asStateFlow()
 
-    private val _progress = MutableStateFlow<Pair<Int, Int>?>(null)
+    // Triple: (현재 이미지 번호, 전체, 현재 이미지 진행률 0~1f)
+    private val _progress = MutableStateFlow<Triple<Int, Int, Float>?>(null)
     val progress = _progress.asStateFlow()
 
     val selectedImages = MutableStateFlow<List<Bitmap>>(emptyList())
@@ -40,8 +41,10 @@ class ImportViewModel(
             val total = selectedImages.value.size
             val allWords = mutableListOf<com.wordtest.app.data.api.WordPair>()
             for ((index, bitmap) in selectedImages.value.withIndex()) {
-                _progress.value = Pair(index + 1, total)
-                geminiService.extractWordsFromImage(bitmap)
+                _progress.value = Triple(index + 1, total, 0f)
+                geminiService.extractWordsFromImage(bitmap) { p ->
+                    _progress.value = Triple(index + 1, total, p)
+                }
                     .onSuccess { allWords.addAll(it) }
                     .onFailure {
                         _uiState.value = ImportUiState.Error("이미지 처리 실패: ${it.message}")

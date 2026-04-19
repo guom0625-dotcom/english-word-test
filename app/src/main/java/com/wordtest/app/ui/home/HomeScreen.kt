@@ -30,7 +30,7 @@ fun HomeScreen(
     repository: WordRepository,
     updateChecker: UpdateChecker,
     onNewSession: () -> Unit,
-    onStartTest: (Long, Boolean) -> Unit,
+    onStartTest: (Long, Boolean, Boolean, Boolean, Boolean) -> Unit,
     onEditWords: (Long) -> Unit,
     onApiKeySetting: () -> Unit
 ) {
@@ -121,8 +121,8 @@ fun HomeScreen(
     testTarget?.let { session ->
         ModeSelectDialog(
             counts = sessionCounts,
-            onStart = { silent ->
-                onStartTest(session.id, silent)
+            onStart = { silent, autoMic, ordered, mcOnly ->
+                onStartTest(session.id, silent, autoMic, ordered, mcOnly)
                 testTarget = null
                 vm.clearSessionCounts()
             },
@@ -201,15 +201,18 @@ fun HomeScreen(
 
 @Composable
 private fun ModeSelectDialog(
-    counts: Pair<Int, Int>?,  // (enabled, total)
-    onStart: (silent: Boolean) -> Unit,
+    counts: Pair<Int, Int>?,
+    onStart: (silent: Boolean, autoMic: Boolean, ordered: Boolean, mcOnly: Boolean) -> Unit,
     onDismiss: () -> Unit
 ) {
+    var autoMic by remember { mutableStateOf(false) }
+    var ordered by remember { mutableStateOf(false) }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("테스트 모드 선택") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 counts?.let { (enabled, total) ->
                     Text(
                         "선택된 단어: $enabled / ${total}개",
@@ -219,17 +222,37 @@ private fun ModeSelectDialog(
                     )
                     HorizontalDivider()
                 }
-                OutlinedButton(onClick = { onStart(false) }, modifier = Modifier.fillMaxWidth()) {
+                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Text("순서대로", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                    Switch(checked = ordered, onCheckedChange = { ordered = it })
+                }
+                HorizontalDivider()
+                OutlinedButton(onClick = { onStart(false, autoMic, ordered, false) }, modifier = Modifier.fillMaxWidth()) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("🎤 말하기 모드", fontWeight = FontWeight.Bold)
                         Text("앱이 한글 뜻을 말하면 영어로 말하기",
                             style = MaterialTheme.typography.bodySmall)
                     }
                 }
-                OutlinedButton(onClick = { onStart(true) }, modifier = Modifier.fillMaxWidth()) {
+                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Text("자동 마이크", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                    Switch(checked = autoMic, onCheckedChange = { autoMic = it })
+                }
+                HorizontalDivider()
+                OutlinedButton(onClick = { onStart(true, false, ordered, false) }, modifier = Modifier.fillMaxWidth()) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("⌨️ 타이핑 모드", fontWeight = FontWeight.Bold)
                         Text("한글 뜻을 보고 영어 단어 타이핑",
+                            style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+                HorizontalDivider()
+                OutlinedButton(onClick = { onStart(false, false, ordered, true) }, modifier = Modifier.fillMaxWidth()) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("📝 객관식 모드", fontWeight = FontWeight.Bold)
+                        Text("4개 보기 중 정답 선택, 재시도 없음",
                             style = MaterialTheme.typography.bodySmall)
                     }
                 }

@@ -50,7 +50,7 @@ fun WordListScreen(
     sessionId: Long,
     repository: WordRepository,
     geminiService: GeminiService,
-    onStartTest: (Boolean) -> Unit,
+    onStartTest: (Boolean, Boolean, Boolean, Boolean) -> Unit,
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
@@ -251,15 +251,18 @@ fun WordListScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text("AI가 단어 인식 중...")
-                    processProgress?.let { (current, total) ->
+                    processProgress?.let { (current, total, imageProgress) ->
+                        val percent = (imageProgress * 100).toInt()
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text("$current / $total 장", style = MaterialTheme.typography.bodySmall)
+                            Text("$current / $total 장 인식 중", style = MaterialTheme.typography.bodySmall)
+                            Text("$percent%", style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary)
                         }
                         LinearProgressIndicator(
-                            progress = { current.toFloat() / total.toFloat() },
+                            progress = { imageProgress },
                             modifier = Modifier.fillMaxWidth()
                         )
                     } ?: CircularProgressIndicator()
@@ -400,11 +403,13 @@ fun WordListScreen(
 
     // 테스트 모드 선택
     if (showModeDialog) {
+        var autoMic by remember { mutableStateOf(false) }
+        var ordered by remember { mutableStateOf(false) }
         AlertDialog(
             onDismissRequest = { showModeDialog = false },
             title = { Text("테스트 모드 선택") },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
                         "선택된 단어: $enabledCount / ${totalCount}개",
                         style = MaterialTheme.typography.bodyMedium,
@@ -412,8 +417,14 @@ fun WordListScreen(
                         fontWeight = FontWeight.Bold
                     )
                     HorizontalDivider()
+                    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Text("순서대로", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                        Switch(checked = ordered, onCheckedChange = { ordered = it })
+                    }
+                    HorizontalDivider()
                     OutlinedButton(
-                        onClick = { onStartTest(false); showModeDialog = false },
+                        onClick = { onStartTest(false, autoMic, ordered, false); showModeDialog = false },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -422,13 +433,30 @@ fun WordListScreen(
                                 style = MaterialTheme.typography.bodySmall)
                         }
                     }
+                    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Text("자동 마이크", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                        Switch(checked = autoMic, onCheckedChange = { autoMic = it })
+                    }
+                    HorizontalDivider()
                     OutlinedButton(
-                        onClick = { onStartTest(true); showModeDialog = false },
+                        onClick = { onStartTest(true, false, ordered, false); showModeDialog = false },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text("⌨️ 타이핑 모드", fontWeight = FontWeight.Bold)
                             Text("한글 뜻을 보고 영어 단어 타이핑",
+                                style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                    HorizontalDivider()
+                    OutlinedButton(
+                        onClick = { onStartTest(false, false, ordered, true); showModeDialog = false },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("📝 객관식 모드", fontWeight = FontWeight.Bold)
+                            Text("4개 보기 중 정답 선택, 재시도 없음",
                                 style = MaterialTheme.typography.bodySmall)
                         }
                     }

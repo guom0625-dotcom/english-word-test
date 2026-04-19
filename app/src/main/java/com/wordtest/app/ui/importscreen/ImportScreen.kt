@@ -176,17 +176,19 @@ fun ImportScreen(
             Spacer(Modifier.weight(1f))
 
             if (progress != null) {
-                val (current, total) = progress!!
+                val (current, total, imageProgress) = progress!!
+                val percent = (imageProgress * 100).toInt()
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("AI가 단어 인식 중...", style = MaterialTheme.typography.bodyMedium)
-                        Text("$current / $total 장", style = MaterialTheme.typography.bodyMedium)
+                        Text("$current / $total 장 인식 중...", style = MaterialTheme.typography.bodyMedium)
+                        Text("$percent%", style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary)
                     }
                     LinearProgressIndicator(
-                        progress = { current.toFloat() / total.toFloat() },
+                        progress = { imageProgress },
                         modifier = Modifier.fillMaxWidth()
                     )
                 }

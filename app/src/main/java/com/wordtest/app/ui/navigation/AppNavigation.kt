@@ -23,8 +23,9 @@ sealed class Screen(val route: String) {
     object WordList : Screen("wordlist/{sessionId}") {
         fun createRoute(sessionId: Long) = "wordlist/$sessionId"
     }
-    object Test : Screen("test/{sessionId}/{silent}") {
-        fun createRoute(sessionId: Long, silent: Boolean) = "test/$sessionId/$silent"
+    object Test : Screen("test/{sessionId}/{silent}/{autoMic}/{ordered}/{mcOnly}") {
+        fun createRoute(sessionId: Long, silent: Boolean, autoMic: Boolean = false, ordered: Boolean = false, mcOnly: Boolean = false) =
+            "test/$sessionId/$silent/$autoMic/$ordered/$mcOnly"
     }
     object Result : Screen("result/{score}/{total}/{sessionId}") {
         fun createRoute(score: Int, total: Int, sessionId: Long) = "result/$score/$total/$sessionId"
@@ -65,8 +66,8 @@ fun AppNavigation(app: WordTestApplication) {
                 repository = app.repository,
                 updateChecker = app.updateChecker,
                 onNewSession = { navController.navigate(Screen.Import.route) },
-                onStartTest = { sessionId, silent ->
-                    navController.navigate(Screen.Test.createRoute(sessionId, silent))
+                onStartTest = { sessionId, silent, autoMic, ordered, mcOnly ->
+                    navController.navigate(Screen.Test.createRoute(sessionId, silent, autoMic, ordered, mcOnly))
                 },
                 onEditWords = { sessionId -> navController.navigate(Screen.WordList.createRoute(sessionId)) },
                 onApiKeySetting = { navController.navigate(Screen.ApiKey.createRoute(false)) }
@@ -94,8 +95,8 @@ fun AppNavigation(app: WordTestApplication) {
                 sessionId = sessionId,
                 repository = app.repository,
                 geminiService = app.geminiService,
-                onStartTest = { silent ->
-                    navController.navigate(Screen.Test.createRoute(sessionId, silent)) {
+                onStartTest = { silent, autoMic, ordered, mcOnly ->
+                    navController.navigate(Screen.Test.createRoute(sessionId, silent, autoMic, ordered, mcOnly)) {
                         popUpTo(Screen.Home.route)
                     }
                 },
@@ -107,14 +108,23 @@ fun AppNavigation(app: WordTestApplication) {
             route = Screen.Test.route,
             arguments = listOf(
                 navArgument("sessionId") { type = NavType.LongType },
-                navArgument("silent") { type = NavType.BoolType }
+                navArgument("silent") { type = NavType.BoolType },
+                navArgument("autoMic") { type = NavType.BoolType },
+                navArgument("ordered") { type = NavType.BoolType },
+                navArgument("mcOnly") { type = NavType.BoolType }
             )
         ) { backStackEntry ->
             val sessionId = backStackEntry.arguments?.getLong("sessionId") ?: return@composable
             val silent = backStackEntry.arguments?.getBoolean("silent") ?: false
+            val autoMic = backStackEntry.arguments?.getBoolean("autoMic") ?: false
+            val ordered = backStackEntry.arguments?.getBoolean("ordered") ?: false
+            val mcOnly = backStackEntry.arguments?.getBoolean("mcOnly") ?: false
             TestScreen(
                 sessionId = sessionId,
                 silentMode = silent,
+                initialAutoMic = autoMic,
+                ordered = ordered,
+                multipleChoiceOnly = mcOnly,
                 repository = app.repository,
                 onFinished = { score, total ->
                     navController.navigate(Screen.Result.createRoute(score, total, sessionId)) {
@@ -144,7 +154,7 @@ fun AppNavigation(app: WordTestApplication) {
                     }
                 },
                 onRetry = { silent ->
-                    navController.navigate(Screen.Test.createRoute(sessionId, silent)) {
+                    navController.navigate(Screen.Test.createRoute(sessionId, silent, false)) {
                         popUpTo(Screen.Home.route)
                     }
                 }
