@@ -227,6 +227,11 @@ private fun ModeSelectDialog(
                     Text("순서대로", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
                     Switch(checked = ordered, onCheckedChange = { ordered = it })
                 }
+                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Text("자동 마이크 (말하기 전용)", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                    Switch(checked = autoMic, onCheckedChange = { autoMic = it })
+                }
                 HorizontalDivider()
                 OutlinedButton(onClick = { onStart(false, autoMic, ordered, false) }, modifier = Modifier.fillMaxWidth()) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -235,12 +240,6 @@ private fun ModeSelectDialog(
                             style = MaterialTheme.typography.bodySmall)
                     }
                 }
-                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically) {
-                    Text("자동 마이크", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
-                    Switch(checked = autoMic, onCheckedChange = { autoMic = it })
-                }
-                HorizontalDivider()
                 OutlinedButton(onClick = { onStart(true, false, ordered, false) }, modifier = Modifier.fillMaxWidth()) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("⌨️ 타이핑 모드", fontWeight = FontWeight.Bold)
@@ -248,7 +247,6 @@ private fun ModeSelectDialog(
                             style = MaterialTheme.typography.bodySmall)
                     }
                 }
-                HorizontalDivider()
                 OutlinedButton(onClick = { onStart(false, false, ordered, true) }, modifier = Modifier.fillMaxWidth()) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("📝 객관식 모드", fontWeight = FontWeight.Bold)

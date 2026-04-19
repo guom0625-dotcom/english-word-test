@@ -422,6 +422,11 @@ fun WordListScreen(
                         Text("순서대로", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
                         Switch(checked = ordered, onCheckedChange = { ordered = it })
                     }
+                    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Text("자동 마이크 (말하기 전용)", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                        Switch(checked = autoMic, onCheckedChange = { autoMic = it })
+                    }
                     HorizontalDivider()
                     OutlinedButton(
                         onClick = { onStartTest(false, autoMic, ordered, false); showModeDialog = false },
@@ -433,12 +438,6 @@ fun WordListScreen(
                                 style = MaterialTheme.typography.bodySmall)
                         }
                     }
-                    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically) {
-                        Text("자동 마이크", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
-                        Switch(checked = autoMic, onCheckedChange = { autoMic = it })
-                    }
-                    HorizontalDivider()
                     OutlinedButton(
                         onClick = { onStartTest(true, false, ordered, false); showModeDialog = false },
                         modifier = Modifier.fillMaxWidth()
@@ -449,7 +448,6 @@ fun WordListScreen(
                                 style = MaterialTheme.typography.bodySmall)
                         }
                     }
-                    HorizontalDivider()
                     OutlinedButton(
                         onClick = { onStartTest(false, false, ordered, true); showModeDialog = false },
                         modifier = Modifier.fillMaxWidth()
