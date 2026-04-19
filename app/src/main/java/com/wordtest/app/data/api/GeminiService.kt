@@ -52,7 +52,9 @@ class GeminiService(private val apiKeyStore: ApiKeyStore) {
                    - korean: 뜻을 " / " 로 구분해서 합쳐. 예: "제공하다, 공급하다 / 조항, 규정"
                    - partOfSpeech: 품사도 합쳐. 예: "v./n."
                 4. = 기호가 붙은 유의어도 포함해. isSynonym: true로 설정해.
-                5. <-> 기호가 붙은 반대어도 포함해. isAntonym: true로 설정해.
+                5. <-> 기호는 "앞 단어의 반대어"를 나타내. <-> 뒤에 오는 단어만 isAntonym: true로 설정해.
+                   <-> 앞에 있는 단어는 일반 단어이므로 isAntonym: false를 유지해.
+                   예시: "provide <-> deprive" → provide는 isAntonym: false, deprive는 isAntonym: true
                 6. isSynonym, isAntonym 기본값은 false야.
 
                 형식 예시:

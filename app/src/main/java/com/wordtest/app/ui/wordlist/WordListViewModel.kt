@@ -28,6 +28,9 @@ class WordListViewModel(
     private val _isProcessing = MutableStateFlow(false)
     val isProcessing = _isProcessing.asStateFlow()
 
+    private val _progress = MutableStateFlow<Pair<Int, Int>?>(null)
+    val progress = _progress.asStateFlow()
+
     private val _imageError = MutableStateFlow<String?>(null)
     val imageError = _imageError.asStateFlow()
 
@@ -85,8 +88,10 @@ class WordListViewModel(
     fun addWordsFromImages(bitmaps: List<Bitmap>) {
         viewModelScope.launch {
             _isProcessing.value = true
+            val total = bitmaps.size
             var skipped = 0
-            for (bitmap in bitmaps) {
+            for ((index, bitmap) in bitmaps.withIndex()) {
+                _progress.value = Pair(index + 1, total)
                 geminiService.extractWordsFromImage(bitmap)
                     .onSuccess { pairs ->
                         pairs.forEach { pair ->
@@ -105,6 +110,7 @@ class WordListViewModel(
                     }
                     .onFailure { _imageError.value = "이미지 처리 실패: ${it.message}" }
             }
+            _progress.value = null
             _isProcessing.value = false
             if (skipped > 0) _imageError.value = "중복 단어 ${skipped}개는 건너뛰었습니다."
         }

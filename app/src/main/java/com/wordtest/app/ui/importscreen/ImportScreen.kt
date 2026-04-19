@@ -12,8 +12,11 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Image
+import androidx.core.content.FileProvider
+import java.io.File
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -45,6 +48,7 @@ fun ImportScreen(
     })
 
     val uiState by vm.uiState.collectAsState()
+    val progress by vm.progress.collectAsState()
     val images by vm.selectedImages.collectAsState()
     var sessionName by remember {
         mutableStateOf("단어목록_${SimpleDateFormat("MMdd_HHmm", Locale.getDefault()).format(Date())}")
@@ -61,6 +65,32 @@ fun ImportScreen(
                 MediaStore.Images.Media.getBitmap(context.contentResolver, uri)
             }
             vm.addImage(bitmap)
+        }
+    }
+
+    var currentCameraUri by remember { mutableStateOf<Uri?>(null) }
+    var showCameraNextChoice by remember { mutableStateOf(false) }
+
+    fun createCameraUri(): Uri {
+        val file = File(context.cacheDir, "camera_${System.currentTimeMillis()}.jpg")
+        return FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
+    }
+
+    val cameraLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success) {
+            val uri = currentCameraUri ?: return@rememberLauncherForActivityResult
+            val bitmap = runCatching {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    ImageDecoder.decodeBitmap(ImageDecoder.createSource(context.contentResolver, uri))
+                } else {
+                    @Suppress("DEPRECATION")
+                    MediaStore.Images.Media.getBitmap(context.contentResolver, uri)
+                }
+            }.getOrNull() ?: return@rememberLauncherForActivityResult
+            vm.addImage(bitmap)
+            showCameraNextChoice = true
         }
     }
 
@@ -94,13 +124,27 @@ fun ImportScreen(
                 singleLine = true
             )
 
-            OutlinedButton(
-                onClick = { imagePicker.launch("image/*") },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(Icons.Default.Image, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
-                Text("이미지 선택 (갤러리)")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = { imagePicker.launch("image/*") },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("갤러리")
+                }
+                OutlinedButton(
+                    onClick = {
+                        val uri = createCameraUri()
+                        currentCameraUri = uri
+                        cameraLauncher.launch(uri)
+                    },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("카메라")
+                }
             }
 
             if (images.isNotEmpty()) {
@@ -131,24 +175,52 @@ fun ImportScreen(
 
             Spacer(Modifier.weight(1f))
 
-            Button(
-                onClick = { vm.processImages(sessionName) },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = images.isNotEmpty() && uiState !is ImportUiState.Processing
-            ) {
-                if (uiState is ImportUiState.Processing) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.onPrimary
+            if (progress != null) {
+                val (current, total) = progress!!
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("AI가 단어 인식 중...", style = MaterialTheme.typography.bodyMedium)
+                        Text("$current / $total 장", style = MaterialTheme.typography.bodyMedium)
+                    }
+                    LinearProgressIndicator(
+                        progress = { current.toFloat() / total.toFloat() },
+                        modifier = Modifier.fillMaxWidth()
                     )
-                    Spacer(Modifier.width(8.dp))
-                    Text("AI가 단어 인식 중...")
-                } else {
+                }
+            } else {
+                Button(
+                    onClick = { vm.processImages(sessionName) },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = images.isNotEmpty()
+                ) {
                     Text("단어 추출 시작")
                 }
             }
         }
+    }
+
+    if (showCameraNextChoice) {
+        AlertDialog(
+            onDismissRequest = { },
+            title = { Text("${images.size}장 추가됨") },
+            text = { Text("한 장 더 찍을까요?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showCameraNextChoice = false
+                    val uri = createCameraUri()
+                    currentCameraUri = uri
+                    cameraLauncher.launch(uri)
+                }) { Text("한 장 더") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCameraNextChoice = false }) {
+                    Text("완료 (${images.size}장)")
+                }
+            }
+        )
     }
 
     if (uiState is ImportUiState.Error) {

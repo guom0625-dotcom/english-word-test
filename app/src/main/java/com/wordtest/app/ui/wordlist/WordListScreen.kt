@@ -63,6 +63,7 @@ fun WordListScreen(
     val words by vm.words.collectAsState()
     val sessionName by vm.sessionName.collectAsState()
     val isProcessing by vm.isProcessing.collectAsState()
+    val processProgress by vm.progress.collectAsState()
     val imageError by vm.imageError.collectAsState()
 
     var showAddChoice by remember { mutableStateOf(false) }
@@ -245,12 +246,23 @@ fun WordListScreen(
         ) {
             Card {
                 Column(
-                    modifier = Modifier.padding(24.dp),
+                    modifier = Modifier.padding(24.dp).width(240.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    CircularProgressIndicator()
                     Text("AI가 단어 인식 중...")
+                    processProgress?.let { (current, total) ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("$current / $total 장", style = MaterialTheme.typography.bodySmall)
+                        }
+                        LinearProgressIndicator(
+                            progress = { current.toFloat() / total.toFloat() },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    } ?: CircularProgressIndicator()
                 }
             }
         }

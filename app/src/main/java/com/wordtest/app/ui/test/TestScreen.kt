@@ -95,7 +95,7 @@ fun TestScreen(
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             val matches = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
-            vm.onAnswerSubmitted(matches?.firstOrNull() ?: "")
+            vm.onAnswerSubmitted(matches ?: listOf(""))
         }
     }
 
@@ -120,7 +120,7 @@ fun TestScreen(
                     korean = state.word.entity.korean,
                     partOfSpeech = state.word.entity.partOfSpeech,
                     wrongCount = state.wrongCount,
-                    onSubmit = { vm.onAnswerSubmitted(it) }
+                    onSubmit = { vm.onAnswerSubmitted(listOf(it)) }
                 )
             } else {
                 VoiceTestScreen(
