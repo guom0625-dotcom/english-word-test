@@ -42,7 +42,7 @@ fun ResultScreen(
     sessionId: Long,
     repository: WordRepository,
     onHome: () -> Unit,
-    onRetry: (Boolean) -> Unit
+    onRetry: (silent: Boolean, autoMic: Boolean, ordered: Boolean, mcOnly: Boolean) -> Unit
 ) {
     val percentage = if (total > 0) (score * 100 / total) else 0
     val grade = when {
@@ -51,6 +51,8 @@ fun ResultScreen(
         percentage >= 50 -> "💪 조금 더 연습해요"
         else -> "📚 다시 공부해봐요"
     }
+
+    var showModeDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("테스트 결과") }) }
@@ -83,21 +85,6 @@ fun ResultScreen(
                 }
             }
 
-            if (total - score > 0) {
-                item {
-                    Text(
-                        "틀린 단어 (${total - score}개)",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-                items((0 until (total - score)).toList()) { index ->
-                    // Placeholder - actual wrong words tracked in TestViewModel
-                    // In a full implementation, pass wrongWords through navigation
-                }
-            }
-
             item {
                 Text(
                     if (total - score == 0) "모든 단어를 맞혔습니다! 🎉"
@@ -118,7 +105,7 @@ fun ResultScreen(
                         Spacer(Modifier.width(4.dp))
                         Text("홈으로")
                     }
-                    Button(onClick = { onRetry(false) }, modifier = Modifier.weight(1f)) {
+                    Button(onClick = { showModeDialog = true }, modifier = Modifier.weight(1f)) {
                         Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(4.dp))
                         Text("다시 테스트")
@@ -126,5 +113,61 @@ fun ResultScreen(
                 }
             }
         }
+    }
+
+    if (showModeDialog) {
+        var autoMic by remember { mutableStateOf(false) }
+        var ordered by remember { mutableStateOf(false) }
+        AlertDialog(
+            onDismissRequest = { showModeDialog = false },
+            title = { Text("테스트 모드 선택") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Text("순서대로", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                        Switch(checked = ordered, onCheckedChange = { ordered = it })
+                    }
+                    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Text("자동 마이크 (말하기 전용)", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                        Switch(checked = autoMic, onCheckedChange = { autoMic = it })
+                    }
+                    HorizontalDivider()
+                    OutlinedButton(
+                        onClick = { onRetry(false, autoMic, ordered, false) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("🎤 말하기 모드", fontWeight = FontWeight.Bold)
+                            Text("앱이 한글 뜻을 말하면 영어로 말하기",
+                                style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                    OutlinedButton(
+                        onClick = { onRetry(true, false, ordered, false) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("⌨️ 타이핑 모드", fontWeight = FontWeight.Bold)
+                            Text("한글 뜻을 보고 영어 단어 타이핑",
+                                style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                    OutlinedButton(
+                        onClick = { onRetry(false, false, ordered, true) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("📝 객관식 모드", fontWeight = FontWeight.Bold)
+                            Text("4개 보기 중 정답 선택, 재시도 없음",
+                                style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = { TextButton(onClick = { showModeDialog = false }) { Text("취소") } }
+        )
     }
 }

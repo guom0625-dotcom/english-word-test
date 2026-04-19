@@ -153,8 +153,8 @@ fun AppNavigation(app: WordTestApplication) {
                         popUpTo(Screen.Home.route) { inclusive = true }
                     }
                 },
-                onRetry = { silent ->
-                    navController.navigate(Screen.Test.createRoute(sessionId, silent, false)) {
+                onRetry = { silent, autoMic, ordered, mcOnly ->
+                    navController.navigate(Screen.Test.createRoute(sessionId, silent, autoMic, ordered, mcOnly)) {
                         popUpTo(Screen.Home.route)
                     }
                 }
