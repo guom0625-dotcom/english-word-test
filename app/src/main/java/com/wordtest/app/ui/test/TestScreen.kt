@@ -44,7 +44,7 @@ fun TestScreen(
     multipleChoiceOnly: Boolean = false,
     reverseMode: Boolean = false,
     repository: WordRepository,
-    onFinished: (score: Int, total: Int) -> Unit
+    onFinished: (score: Int, total: Int, wrongIds: String) -> Unit
 ) {
     val context = LocalContext.current
     val vm: TestViewModel = viewModel(factory = object : androidx.lifecycle.ViewModelProvider.Factory {
@@ -124,7 +124,10 @@ fun TestScreen(
     LaunchedEffect(uiState) {
         when (val state = uiState) {
             is TestUiState.Voice -> if (!silentMode && ttsReady) speakQuestion(questionText(state.word.entity))
-            is TestUiState.Finished -> onFinished(state.score, state.total)
+            is TestUiState.Finished -> {
+                val wrongIds = vm.getWrongWords().joinToString(",") { it.entity.id.toString() }
+                onFinished(state.score, state.total, wrongIds)
+            }
             else -> Unit
         }
     }

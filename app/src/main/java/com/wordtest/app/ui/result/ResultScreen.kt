@@ -23,13 +23,15 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-class ResultViewModel(sessionId: Long, repository: WordRepository) : ViewModel() {
+class ResultViewModel(sessionId: Long, wrongIds: List<Int>, repository: WordRepository) : ViewModel() {
     private val _wrongWords = MutableStateFlow<List<WordEntity>>(emptyList())
     val wrongWords = _wrongWords.asStateFlow()
 
     init {
         viewModelScope.launch {
-            _wrongWords.value = repository.getWordsBySessionOnce(sessionId)
+            if (wrongIds.isEmpty()) return@launch
+            val all = repository.getWordsBySessionOnce(sessionId)
+            _wrongWords.value = all.filter { it.id in wrongIds }
         }
     }
 }
@@ -40,6 +42,7 @@ fun ResultScreen(
     score: Int,
     total: Int,
     sessionId: Long,
+    wrongIds: List<Int>,
     repository: WordRepository,
     onHome: () -> Unit,
     onRetry: (silent: Boolean, autoMic: Boolean, ordered: Boolean, mcOnly: Boolean, reverseMode: Boolean) -> Unit
@@ -51,7 +54,15 @@ fun ResultScreen(
         percentage >= 50 -> "💪 조금 더 연습해요"
         else -> "📚 다시 공부해봐요"
     }
+    val wrongCount = total - score
 
+    val vm: ResultViewModel = viewModel(factory = object : androidx.lifecycle.ViewModelProvider.Factory {
+        override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
+            @Suppress("UNCHECKED_CAST")
+            return ResultViewModel(sessionId, wrongIds, repository) as T
+        }
+    })
+    val wrongWords by vm.wrongWords.collectAsState()
     var showModeDialog by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -81,18 +92,14 @@ fun ResultScreen(
                         Spacer(Modifier.height(16.dp))
                         Text("$score / $total", fontSize = 56.sp, fontWeight = FontWeight.Bold)
                         Text("정답률 $percentage%", style = MaterialTheme.typography.titleMedium)
+                        if (wrongCount > 0) {
+                            Spacer(Modifier.height(4.dp))
+                            Text("틀린 단어 ${wrongCount}개",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.error)
+                        }
                     }
                 }
-            }
-
-            item {
-                Text(
-                    if (total - score == 0) "모든 단어를 맞혔습니다! 🎉"
-                    else "틀린 단어를 다시 복습해보세요.",
-                    textAlign = TextAlign.Center,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
 
             item {
@@ -110,6 +117,39 @@ fun ResultScreen(
                         Spacer(Modifier.width(4.dp))
                         Text("다시 테스트")
                     }
+                }
+            }
+
+            if (wrongWords.isNotEmpty()) {
+                item {
+                    HorizontalDivider()
+                    Spacer(Modifier.height(4.dp))
+                    Text("틀린 단어 복습", style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.fillMaxWidth())
+                }
+                items(wrongWords) { word ->
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(word.english, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                            if (word.partOfSpeech.isNotBlank()) {
+                                Text(word.partOfSpeech,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.primary)
+                            }
+                            Spacer(Modifier.height(4.dp))
+                            Text(word.korean,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            } else if (wrongCount == 0) {
+                item {
+                    Text("모든 단어를 맞혔습니다! 🎉",
+                        textAlign = TextAlign.Center,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }

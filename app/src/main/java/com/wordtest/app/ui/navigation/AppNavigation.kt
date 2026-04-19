@@ -27,8 +27,9 @@ sealed class Screen(val route: String) {
         fun createRoute(sessionId: Long, silent: Boolean, autoMic: Boolean = false, ordered: Boolean = false, mcOnly: Boolean = false, reverseMode: Boolean = false) =
             "test/$sessionId/$silent/$autoMic/$ordered/$mcOnly/$reverseMode"
     }
-    object Result : Screen("result/{score}/{total}/{sessionId}") {
-        fun createRoute(score: Int, total: Int, sessionId: Long) = "result/$score/$total/$sessionId"
+    object Result : Screen("result/{score}/{total}/{sessionId}/{wrongIds}") {
+        fun createRoute(score: Int, total: Int, sessionId: Long, wrongIds: String = "") =
+            "result/$score/$total/$sessionId/${wrongIds.ifEmpty { "_" }}"
     }
 }
 
@@ -129,8 +130,8 @@ fun AppNavigation(app: WordTestApplication) {
                 multipleChoiceOnly = mcOnly,
                 reverseMode = reverseMode,
                 repository = app.repository,
-                onFinished = { score, total ->
-                    navController.navigate(Screen.Result.createRoute(score, total, sessionId)) {
+                onFinished = { score, total, wrongIds ->
+                    navController.navigate(Screen.Result.createRoute(score, total, sessionId, wrongIds)) {
                         popUpTo(Screen.Home.route)
                     }
                 }
@@ -142,14 +143,18 @@ fun AppNavigation(app: WordTestApplication) {
             arguments = listOf(
                 navArgument("score") { type = NavType.IntType },
                 navArgument("total") { type = NavType.IntType },
-                navArgument("sessionId") { type = NavType.LongType }
+                navArgument("sessionId") { type = NavType.LongType },
+                navArgument("wrongIds") { type = NavType.StringType }
             )
         ) { backStackEntry ->
             val score = backStackEntry.arguments?.getInt("score") ?: 0
             val total = backStackEntry.arguments?.getInt("total") ?: 0
             val sessionId = backStackEntry.arguments?.getLong("sessionId") ?: 0L
+            val wrongIds = backStackEntry.arguments?.getString("wrongIds")?.let {
+                if (it == "_") emptyList() else it.split(",").mapNotNull { id -> id.toIntOrNull() }
+            } ?: emptyList()
             ResultScreen(
-                score = score, total = total, sessionId = sessionId,
+                score = score, total = total, sessionId = sessionId, wrongIds = wrongIds,
                 repository = app.repository,
                 onHome = {
                     navController.navigate(Screen.Home.route) {
