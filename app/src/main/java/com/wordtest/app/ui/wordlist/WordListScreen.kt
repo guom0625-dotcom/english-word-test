@@ -7,6 +7,8 @@ import android.os.Build
 import android.provider.MediaStore
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.FileProvider
+import java.io.File
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -19,6 +21,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
@@ -70,6 +73,38 @@ fun WordListScreen(
     // 사진 추가용 상태
     var pendingImages by remember { mutableStateOf<List<Bitmap>>(emptyList()) }
     var showImageConfirm by remember { mutableStateOf(false) }
+
+    // 카메라 촬영용 상태
+    var cameraCaptures by remember { mutableStateOf<List<Bitmap>>(emptyList()) }
+    var currentCameraUri by remember { mutableStateOf<Uri?>(null) }
+    var showCameraNextChoice by remember { mutableStateOf(false) }
+
+    fun createCameraUri(): Uri {
+        val file = File(context.cacheDir, "camera_${System.currentTimeMillis()}.jpg")
+        return FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
+    }
+
+    val cameraLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success) {
+            val uri = currentCameraUri
+            if (uri != null) {
+                val bitmap = runCatching {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                        ImageDecoder.decodeBitmap(ImageDecoder.createSource(context.contentResolver, uri))
+                    } else {
+                        @Suppress("DEPRECATION")
+                        MediaStore.Images.Media.getBitmap(context.contentResolver, uri)
+                    }
+                }.getOrNull()
+                if (bitmap != null) {
+                    cameraCaptures = cameraCaptures + bitmap
+                    showCameraNextChoice = true
+                }
+            }
+        }
+    }
 
     val imagePicker = rememberLauncherForActivityResult(
         ActivityResultContracts.GetMultipleContents()
@@ -242,12 +277,51 @@ fun WordListScreen(
                     ) {
                         Icon(Icons.Default.Image, null, Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
-                        Text("사진으로 추가")
+                        Text("갤러리에서 추가")
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            showAddChoice = false
+                            cameraCaptures = emptyList()
+                            val uri = createCameraUri()
+                            currentCameraUri = uri
+                            cameraLauncher.launch(uri)
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.CameraAlt, null, Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("카메라로 찍기")
                     }
                 }
             },
             confirmButton = {},
             dismissButton = { TextButton(onClick = { showAddChoice = false }) { Text("취소") } }
+        )
+    }
+
+    // 카메라 촬영 후 한 장 더 / 완료
+    if (showCameraNextChoice) {
+        AlertDialog(
+            onDismissRequest = { },
+            title = { Text("${cameraCaptures.size}장 촬영됨") },
+            text = { Text("한 장 더 찍을까요?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showCameraNextChoice = false
+                    val uri = createCameraUri()
+                    currentCameraUri = uri
+                    cameraLauncher.launch(uri)
+                }) { Text("한 장 더") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showCameraNextChoice = false
+                    pendingImages = cameraCaptures
+                    cameraCaptures = emptyList()
+                    showImageConfirm = true
+                }) { Text("완료 (${cameraCaptures.size}장 처리)") }
+            }
         )
     }
 
