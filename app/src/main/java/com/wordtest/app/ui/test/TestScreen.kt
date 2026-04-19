@@ -160,6 +160,7 @@ fun TestScreen(
                 partOfSpeech = state.word.entity.partOfSpeech,
                 choices = state.choices,
                 silentMode = silentMode,
+                isFallback = state.word.wrongCount >= 2,
                 onSelected = { vm.onMultipleChoiceSelected(it) },
                 onSpeak = { speakKorean(state.word.entity.korean) }
             )
@@ -308,6 +309,7 @@ private fun MultipleChoiceScreen(
     partOfSpeech: String,
     choices: List<WordEntity>,
     silentMode: Boolean,
+    isFallback: Boolean = false,
     onSelected: (WordEntity) -> Unit,
     onSpeak: () -> Unit
 ) {
@@ -316,12 +318,14 @@ private fun MultipleChoiceScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
-            Text("2번 틀렸습니다. 보기에서 고르세요",
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                color = MaterialTheme.colorScheme.onErrorContainer)
+        if (isFallback) {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
+                Text("2번 틀렸습니다. 보기에서 고르세요",
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    color = MaterialTheme.colorScheme.onErrorContainer)
+            }
+            Spacer(Modifier.height(24.dp))
         }
-        Spacer(Modifier.height(24.dp))
         Text("이 단어의 영어는?", style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(8.dp))
