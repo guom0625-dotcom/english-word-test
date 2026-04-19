@@ -42,7 +42,7 @@ fun ResultScreen(
     sessionId: Long,
     repository: WordRepository,
     onHome: () -> Unit,
-    onRetry: (silent: Boolean, autoMic: Boolean, ordered: Boolean, mcOnly: Boolean) -> Unit
+    onRetry: (silent: Boolean, autoMic: Boolean, ordered: Boolean, mcOnly: Boolean, reverseMode: Boolean) -> Unit
 ) {
     val percentage = if (total > 0) (score * 100 / total) else 0
     val grade = when {
@@ -118,6 +118,7 @@ fun ResultScreen(
     if (showModeDialog) {
         var autoMic by remember { mutableStateOf(false) }
         var ordered by remember { mutableStateOf(false) }
+        var reverseMode by remember { mutableStateOf(false) }
         AlertDialog(
             onDismissRequest = { showModeDialog = false },
             title = { Text("테스트 모드 선택") },
@@ -133,29 +134,34 @@ fun ResultScreen(
                         Text("자동 마이크 (말하기 전용)", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
                         Switch(checked = autoMic, onCheckedChange = { autoMic = it })
                     }
+                    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Text("영어→한글 모드", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                        Switch(checked = reverseMode, onCheckedChange = { reverseMode = it })
+                    }
                     HorizontalDivider()
                     OutlinedButton(
-                        onClick = { onRetry(false, autoMic, ordered, false) },
+                        onClick = { onRetry(false, autoMic, ordered, false, reverseMode) },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text("🎤 말하기 모드", fontWeight = FontWeight.Bold)
-                            Text("앱이 한글 뜻을 말하면 영어로 말하기",
+                            Text(if (reverseMode) "영어 단어를 듣고 한글 뜻 말하기" else "앱이 한글 뜻을 말하면 영어로 말하기",
                                 style = MaterialTheme.typography.bodySmall)
                         }
                     }
                     OutlinedButton(
-                        onClick = { onRetry(true, false, ordered, false) },
+                        onClick = { onRetry(true, false, ordered, false, reverseMode) },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text("⌨️ 타이핑 모드", fontWeight = FontWeight.Bold)
-                            Text("한글 뜻을 보고 영어 단어 타이핑",
+                            Text(if (reverseMode) "영어 단어를 보고 한글 뜻 타이핑" else "한글 뜻을 보고 영어 단어 타이핑",
                                 style = MaterialTheme.typography.bodySmall)
                         }
                     }
                     OutlinedButton(
-                        onClick = { onRetry(false, false, ordered, true) },
+                        onClick = { onRetry(false, false, ordered, true, reverseMode) },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {

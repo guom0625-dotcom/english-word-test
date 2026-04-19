@@ -42,6 +42,7 @@ fun TestScreen(
     initialAutoMic: Boolean = false,
     ordered: Boolean = false,
     multipleChoiceOnly: Boolean = false,
+    reverseMode: Boolean = false,
     repository: WordRepository,
     onFinished: (score: Int, total: Int) -> Unit
 ) {
@@ -49,7 +50,7 @@ fun TestScreen(
     val vm: TestViewModel = viewModel(factory = object : androidx.lifecycle.ViewModelProvider.Factory {
         override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
             @Suppress("UNCHECKED_CAST")
-            return TestViewModel(sessionId, repository, ordered, multipleChoiceOnly) as T
+            return TestViewModel(sessionId, repository, ordered, multipleChoiceOnly, reverseMode) as T
         }
     })
     val uiState by vm.uiState.collectAsState()
@@ -74,14 +75,15 @@ fun TestScreen(
         tts?.stop()
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.ENGLISH.toString())
-            putExtra(RecognizerIntent.EXTRA_PROMPT, "영어로 말해주세요")
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, if (reverseMode) Locale.KOREAN.toString() else Locale.ENGLISH.toString())
+            putExtra(RecognizerIntent.EXTRA_PROMPT, if (reverseMode) "한글로 말해주세요" else "영어로 말해주세요")
         }
         speechLauncher.launch(intent)
     }
 
-    fun speakKorean(text: String) {
-        val cleaned = text.replace(Regex("^[a-z]+\\./?[a-z]*\\.?\\s*"), "")
+    fun speakQuestion(text: String) {
+        val cleaned = if (reverseMode) text
+            else text.replace(Regex("^[a-z]+\\./?[a-z]*\\.?\\s*"), "")
         tts?.speak(cleaned, TextToSpeech.QUEUE_FLUSH, null, "tts_auto")
     }
 
@@ -89,7 +91,7 @@ fun TestScreen(
         if (!silentMode) {
             tts = TextToSpeech(context) { status ->
                 if (status == TextToSpeech.SUCCESS) {
-                    tts?.language = Locale.KOREAN
+                    tts?.language = if (reverseMode) Locale.ENGLISH else Locale.KOREAN
                     tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                         override fun onStart(utteranceId: String?) {}
                         override fun onDone(utteranceId: String?) {
@@ -107,18 +109,21 @@ fun TestScreen(
         onDispose { tts?.shutdown() }
     }
 
+    fun questionText(entity: com.wordtest.app.data.db.WordEntity) =
+        if (reverseMode) entity.english else entity.korean
+
     // TTS 준비 완료 시 현재 단어 읽기 (첫 단어 처리)
     LaunchedEffect(ttsReady) {
         if (!silentMode && ttsReady) {
             val state = uiState
-            if (state is TestUiState.Voice) speakKorean(state.word.entity.korean)
+            if (state is TestUiState.Voice) speakQuestion(questionText(state.word.entity))
         }
     }
 
     // 단어가 바뀔 때마다 읽기
     LaunchedEffect(uiState) {
         when (val state = uiState) {
-            is TestUiState.Voice -> if (!silentMode && ttsReady) speakKorean(state.word.entity.korean)
+            is TestUiState.Voice -> if (!silentMode && ttsReady) speakQuestion(questionText(state.word.entity))
             is TestUiState.Finished -> onFinished(state.score, state.total)
             else -> Unit
         }
@@ -136,33 +141,38 @@ fun TestScreen(
             }
         }
         is TestUiState.Voice -> {
+            val question = questionText(state.word.entity)
             if (silentMode) {
                 SilentTestScreen(
-                    korean = state.word.entity.korean,
+                    question = question,
                     partOfSpeech = state.word.entity.partOfSpeech,
                     wrongCount = state.wrongCount,
+                    reverseMode = reverseMode,
                     onSubmit = { vm.onAnswerSubmitted(listOf(it)) }
                 )
             } else {
                 VoiceTestScreen(
-                    korean = state.word.entity.korean,
+                    question = question,
                     partOfSpeech = state.word.entity.partOfSpeech,
                     wrongCount = state.wrongCount,
+                    reverseMode = reverseMode,
                     waitingForMic = !autoListen,
                     onMicClick = { autoListen = true; startListeningFn() },
-                    onSpeak = { speakKorean(state.word.entity.korean) }
+                    onSpeak = { speakQuestion(question) }
                 )
             }
         }
         is TestUiState.MultipleChoice -> {
+            val question = questionText(state.word.entity)
             MultipleChoiceScreen(
-                korean = state.word.entity.korean,
+                question = question,
                 partOfSpeech = state.word.entity.partOfSpeech,
                 choices = state.choices,
                 silentMode = silentMode,
+                reverseMode = reverseMode,
                 isFallback = state.word.wrongCount >= 2,
                 onSelected = { vm.onMultipleChoiceSelected(it) },
-                onSpeak = { speakKorean(state.word.entity.korean) }
+                onSpeak = { speakQuestion(question) }
             )
         }
         is TestUiState.Finished -> {
@@ -175,9 +185,10 @@ fun TestScreen(
 
 @Composable
 private fun VoiceTestScreen(
-    korean: String,
+    question: String,
     partOfSpeech: String,
     wrongCount: Int,
+    reverseMode: Boolean,
     waitingForMic: Boolean,
     onMicClick: () -> Unit,
     onSpeak: () -> Unit
@@ -195,15 +206,16 @@ private fun VoiceTestScreen(
             }
             Spacer(Modifier.height(16.dp))
         }
-        Text("이 단어의 영어는?", style = MaterialTheme.typography.titleMedium,
+        Text(if (reverseMode) "이 단어의 한글 뜻은?" else "이 단어의 영어는?",
+            style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(16.dp))
-        if (partOfSpeech.isNotBlank()) {
+        if (!reverseMode && partOfSpeech.isNotBlank()) {
             Text(partOfSpeech, style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
         }
         Spacer(Modifier.height(8.dp))
-        Text(korean, fontSize = 32.sp, fontWeight = FontWeight.Bold,
+        Text(question, fontSize = 32.sp, fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center, lineHeight = 42.sp)
         Spacer(Modifier.height(32.dp))
         TextButton(onClick = onSpeak) { Text("다시 듣기") }
@@ -223,16 +235,16 @@ private fun VoiceTestScreen(
 
 @Composable
 private fun SilentTestScreen(
-    korean: String,
+    question: String,
     partOfSpeech: String,
     wrongCount: Int,
+    reverseMode: Boolean,
     onSubmit: (String) -> Unit
 ) {
     var input by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
 
-    // 단어가 바뀔 때마다 입력 초기화 및 포커스
-    LaunchedEffect(korean) {
+    LaunchedEffect(question) {
         input = ""
         focusRequester.requestFocus()
     }
@@ -270,15 +282,16 @@ private fun SilentTestScreen(
                 }
                 Spacer(Modifier.height(16.dp))
             }
-            Text("이 단어의 영어는?", style = MaterialTheme.typography.titleMedium,
+            Text(if (reverseMode) "이 단어의 한글 뜻은?" else "이 단어의 영어는?",
+                style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(16.dp))
-            if (partOfSpeech.isNotBlank()) {
+            if (!reverseMode && partOfSpeech.isNotBlank()) {
                 Text(partOfSpeech, style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
             }
             Spacer(Modifier.height(8.dp))
-            Text(korean, fontSize = 32.sp, fontWeight = FontWeight.Bold,
+            Text(question, fontSize = 32.sp, fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center, lineHeight = 42.sp)
         }
 
@@ -286,7 +299,7 @@ private fun SilentTestScreen(
         OutlinedTextField(
             value = input,
             onValueChange = { input = it },
-            label = { Text("영단어 입력") },
+            label = { Text(if (reverseMode) "한글 뜻 입력" else "영단어 입력") },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp, vertical = 16.dp)
@@ -305,10 +318,11 @@ private fun SilentTestScreen(
 
 @Composable
 private fun MultipleChoiceScreen(
-    korean: String,
+    question: String,
     partOfSpeech: String,
     choices: List<WordEntity>,
     silentMode: Boolean,
+    reverseMode: Boolean,
     isFallback: Boolean = false,
     onSelected: (WordEntity) -> Unit,
     onSpeak: () -> Unit
@@ -326,15 +340,16 @@ private fun MultipleChoiceScreen(
             }
             Spacer(Modifier.height(24.dp))
         }
-        Text("이 단어의 영어는?", style = MaterialTheme.typography.titleMedium,
+        Text(if (reverseMode) "이 단어의 한글 뜻은?" else "이 단어의 영어는?",
+            style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(8.dp))
-        if (partOfSpeech.isNotBlank()) {
+        if (!reverseMode && partOfSpeech.isNotBlank()) {
             Text(partOfSpeech, style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
         }
         Spacer(Modifier.height(8.dp))
-        Text(korean, fontSize = 28.sp, fontWeight = FontWeight.Bold,
+        Text(question, fontSize = 28.sp, fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center, lineHeight = 38.sp)
         if (!silentMode) {
             TextButton(onClick = onSpeak) { Text("다시 듣기") }
@@ -345,7 +360,7 @@ private fun MultipleChoiceScreen(
                 onClick = { onSelected(choice) },
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
             ) {
-                Text(choice.english, fontSize = 18.sp)
+                Text(if (reverseMode) choice.korean else choice.english, fontSize = 18.sp)
             }
         }
     }

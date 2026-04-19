@@ -55,6 +55,20 @@ class TestEngine(words: List<WordEntity>, ordered: Boolean = false, private val 
         }
     }
 
+    fun checkKoreanAnswer(candidates: List<String>, expected: String): Boolean {
+        val tokens = expected.split(Regex("[,/·()\\s]+"))
+            .map { it.trim() }
+            .filter { it.length >= 2 }
+        return candidates.any { spoken ->
+            val s = spoken.trim().lowercase()
+            tokens.any { token ->
+                val t = token.lowercase()
+                s == t || s.contains(t) || t.contains(s) ||
+                levenshtein(s, t) <= allowedErrors(t.length)
+            }
+        }
+    }
+
     private fun allowedErrors(len: Int) = when {
         len <= 5 -> 0
         len <= 8 -> 1

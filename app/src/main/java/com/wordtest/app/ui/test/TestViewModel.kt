@@ -21,7 +21,8 @@ class TestViewModel(
     private val sessionId: Long,
     private val repository: WordRepository,
     private val ordered: Boolean = false,
-    private val multipleChoiceOnly: Boolean = false
+    private val multipleChoiceOnly: Boolean = false,
+    val reverseMode: Boolean = false
 ) : ViewModel() {
     private val _uiState = MutableStateFlow<TestUiState>(TestUiState.Loading)
     val uiState = _uiState.asStateFlow()
@@ -54,11 +55,12 @@ class TestViewModel(
 
     fun onAnswerSubmitted(candidates: List<String>) {
         val current = engine.current ?: return
-        if (engine.checkAnswer(candidates, current.entity.english)) {
-            engine.onVoiceCorrect()
+        val correct = if (reverseMode) {
+            engine.checkKoreanAnswer(candidates, current.entity.korean)
         } else {
-            engine.onVoiceWrong()
+            engine.checkAnswer(candidates, current.entity.english)
         }
+        if (correct) engine.onVoiceCorrect() else engine.onVoiceWrong()
         showCurrent()
     }
 
