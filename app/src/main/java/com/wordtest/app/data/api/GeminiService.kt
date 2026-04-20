@@ -38,7 +38,6 @@ class GeminiService(private val apiKeyStore: ApiKeyStore) {
         "gemini-2.5-flash-lite",
         "gemini-2.0-flash-lite"
     )
-    private var lastSuccessfulModelIndex = 0
 
     private fun streamUrl(model: String) =
         "https://generativelanguage.googleapis.com/v1beta/models/$model:streamGenerateContent?alt=sse&key=${apiKeyStore.getApiKey()}"
@@ -94,9 +93,8 @@ class GeminiService(private val apiKeyStore: ApiKeyStore) {
             }
         }.toString()
 
-        val orderedModels = modelFallbacks.indices.map { modelFallbacks[(lastSuccessfulModelIndex + it) % modelFallbacks.size] }
         var lastError: Exception = Exception("알 수 없는 오류")
-        for (model in orderedModels) {
+        for (model in modelFallbacks) {
             val result = runCatching {
                 val request = Request.Builder()
                     .url(streamUrl(model))
@@ -151,10 +149,7 @@ class GeminiService(private val apiKeyStore: ApiKeyStore) {
                 json.decodeFromString<List<WordPair>>(fullText)
             }
 
-            if (result.isSuccess) {
-                lastSuccessfulModelIndex = modelFallbacks.indexOf(model)
-                return@withContext result
-            }
+            if (result.isSuccess) return@withContext result
             lastError = result.exceptionOrNull() as? Exception ?: lastError
             Log.w("GeminiService", "[$model] 실패, 다음 모델 시도: ${lastError.message}")
         }
