@@ -5,6 +5,7 @@ import android.util.Base64
 import android.util.Log
 import com.wordtest.app.data.ApiKeyStore
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.*
@@ -107,7 +108,13 @@ class GeminiService(private val apiKeyStore: ApiKeyStore) {
 
                 if (response.code == 503 || response.code == 429) {
                     response.body?.close()
-                    onStatus("$model 사용 불가, 다음 모델 시도 중...")
+                    val waitSec = if (response.code == 429) 3 else 0
+                    if (waitSec > 0) {
+                        onStatus("$model 요청 한도 초과, ${waitSec}초 후 다음 모델 시도...")
+                        delay(waitSec * 1000L)
+                    } else {
+                        onStatus("$model 사용 불가, 다음 모델 시도 중...")
+                    }
                     throw Exception("모델 사용 불가 (${response.code}): $model")
                 }
                 if (!response.isSuccessful) {

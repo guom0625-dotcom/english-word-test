@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.wordtest.app.data.api.GeminiService
 import com.wordtest.app.data.repository.WordRepository
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -51,7 +52,13 @@ class ImportViewModel(
                     onModelSelected = { model -> _statusMessage.value = model },
                     onStatus = { status -> _statusMessage.value = status }
                 )
-                    .onSuccess { allWords.addAll(it) }
+                    .onSuccess {
+                        allWords.addAll(it)
+                        if (index < total - 1) {
+                            _statusMessage.value = "다음 이미지 준비 중..."
+                            delay(2000)
+                        }
+                    }
                     .onFailure {
                         _uiState.value = ImportUiState.Error("이미지 처리 실패: ${it.message}")
                         _progress.value = null
