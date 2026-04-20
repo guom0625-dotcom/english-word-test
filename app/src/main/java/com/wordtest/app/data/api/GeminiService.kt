@@ -32,8 +32,15 @@ class GeminiService(private val apiKeyStore: ApiKeyStore) {
         .readTimeout(120, TimeUnit.SECONDS)
         .build()
 
-    private val streamUrl get() =
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse&key=${apiKeyStore.getApiKey()}"
+    private val modelFallbacks = listOf(
+        "gemini-2.5-flash",
+        "gemini-2.0-flash",
+        "gemini-2.5-flash-lite",
+        "gemini-2.0-flash-lite"
+    )
+
+    private fun streamUrl(model: String) =
+        "https://generativelanguage.googleapis.com/v1beta/models/$model:streamGenerateContent?alt=sse&key=${apiKeyStore.getApiKey()}"
 
     private val prompt = """
         이 이미지는 영단어 학습 교재야. 영단어와 한글 뜻을 추출해서 JSON 배열로만 반환해줘.
@@ -67,74 +74,81 @@ class GeminiService(private val apiKeyStore: ApiKeyStore) {
         bitmap: Bitmap,
         onProgress: (Float) -> Unit = {}
     ): Result<List<WordPair>> = withContext(Dispatchers.IO) {
-        runCatching {
-            val imageBase64 = bitmapToBase64(bitmap)
-
-            val requestBody = buildJsonObject {
-                putJsonArray("contents") {
-                    addJsonObject {
-                        putJsonArray("parts") {
-                            addJsonObject {
-                                putJsonObject("inlineData") {
-                                    put("mimeType", "image/jpeg")
-                                    put("data", imageBase64)
-                                }
+        val imageBase64 = bitmapToBase64(bitmap)
+        val requestBody = buildJsonObject {
+            putJsonArray("contents") {
+                addJsonObject {
+                    putJsonArray("parts") {
+                        addJsonObject {
+                            putJsonObject("inlineData") {
+                                put("mimeType", "image/jpeg")
+                                put("data", imageBase64)
                             }
-                            addJsonObject { put("text", prompt) }
                         }
+                        addJsonObject { put("text", prompt) }
                     }
                 }
-            }.toString()
-
-            val request = Request.Builder()
-                .url(streamUrl)
-                .post(requestBody.toRequestBody("application/json".toMediaType()))
-                .build()
-
-            val response = client.newCall(request).execute()
-            Log.d("GeminiService", "Response code: ${response.code}")
-
-            if (!response.isSuccessful) {
-                val errBody = response.body?.string() ?: ""
-                throw Exception("API 오류 ${response.code}: $errBody")
             }
+        }.toString()
 
-            val accumulated = StringBuilder()
-            val source = response.body?.source() ?: throw Exception("응답 없음")
+        var lastError: Exception = Exception("알 수 없는 오류")
+        for (model in modelFallbacks) {
+            val result = runCatching {
+                val request = Request.Builder()
+                    .url(streamUrl(model))
+                    .post(requestBody.toRequestBody("application/json".toMediaType()))
+                    .build()
 
-            onProgress(0.02f)
+                val response = client.newCall(request).execute()
+                Log.d("GeminiService", "[$model] Response code: ${response.code}")
 
-            while (!source.exhausted()) {
-                val line = source.readUtf8Line() ?: break
-                if (!line.startsWith("data:")) continue
-                val dataStr = line.removePrefix("data:").trim()
-                if (dataStr == "[DONE]") break
-
-                runCatching {
-                    val chunk = Json.parseToJsonElement(dataStr).jsonObject
-                    val text = chunk["candidates"]
-                        ?.jsonArray?.getOrNull(0)
-                        ?.jsonObject?.get("content")
-                        ?.jsonObject?.get("parts")
-                        ?.jsonArray?.getOrNull(0)
-                        ?.jsonObject?.get("text")
-                        ?.jsonPrimitive?.content ?: ""
-                    accumulated.append(text)
-                    val progress = (accumulated.length.toFloat() / estimatedResponseChars).coerceIn(0.02f, 0.95f)
-                    onProgress(progress)
+                if (response.code == 503 || response.code == 429) {
+                    response.body?.close()
+                    throw Exception("모델 사용 불가 (${response.code}): $model")
                 }
+                if (!response.isSuccessful) {
+                    val errBody = response.body?.string() ?: ""
+                    throw Exception("API 오류 ${response.code}: $errBody")
+                }
+
+                val accumulated = StringBuilder()
+                val source = response.body?.source() ?: throw Exception("응답 없음")
+                onProgress(0.02f)
+
+                while (!source.exhausted()) {
+                    val line = source.readUtf8Line() ?: break
+                    if (!line.startsWith("data:")) continue
+                    val dataStr = line.removePrefix("data:").trim()
+                    if (dataStr == "[DONE]") break
+                    runCatching {
+                        val chunk = Json.parseToJsonElement(dataStr).jsonObject
+                        val text = chunk["candidates"]
+                            ?.jsonArray?.getOrNull(0)
+                            ?.jsonObject?.get("content")
+                            ?.jsonObject?.get("parts")
+                            ?.jsonArray?.getOrNull(0)
+                            ?.jsonObject?.get("text")
+                            ?.jsonPrimitive?.content ?: ""
+                        accumulated.append(text)
+                        val progress = (accumulated.length.toFloat() / estimatedResponseChars).coerceIn(0.02f, 0.95f)
+                        onProgress(progress)
+                    }
+                }
+
+                onProgress(1f)
+                val fullText = accumulated.toString().trim()
+                    .removePrefix("```json").removePrefix("```")
+                    .removeSuffix("```").trim()
+                json.decodeFromString<List<WordPair>>(fullText)
             }
 
-            onProgress(1f)
-
-            val fullText = accumulated.toString().trim()
-                .removePrefix("```json").removePrefix("```")
-                .removeSuffix("```").trim()
-
-            json.decodeFromString<List<WordPair>>(fullText)
-        }.onFailure {
-            Log.e("GeminiService", "Error: ${it.javaClass.simpleName} - ${it.message}")
+            if (result.isSuccess) return@withContext result
+            lastError = result.exceptionOrNull() as? Exception ?: lastError
+            Log.w("GeminiService", "[$model] 실패, 다음 모델 시도: ${lastError.message}")
         }
+
+        Log.e("GeminiService", "모든 모델 실패: ${lastError.message}")
+        Result.failure(lastError)
     }
 
     private fun bitmapToBase64(bitmap: Bitmap): String {
