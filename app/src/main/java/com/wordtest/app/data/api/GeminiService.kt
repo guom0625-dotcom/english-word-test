@@ -73,7 +73,8 @@ class GeminiService(private val apiKeyStore: ApiKeyStore) {
     suspend fun extractWordsFromImage(
         bitmap: Bitmap,
         onProgress: (Float) -> Unit = {},
-        onModelSelected: (String) -> Unit = {}
+        onModelSelected: (String) -> Unit = {},
+        onStatus: (String) -> Unit = {}
     ): Result<List<WordPair>> = withContext(Dispatchers.IO) {
         val imageBase64 = bitmapToBase64(bitmap)
         val requestBody = buildJsonObject {
@@ -100,12 +101,13 @@ class GeminiService(private val apiKeyStore: ApiKeyStore) {
                     .post(requestBody.toRequestBody("application/json".toMediaType()))
                     .build()
 
-                onModelSelected(model)
+                onStatus("$model 연결 중...")
                 val response = client.newCall(request).execute()
                 Log.d("GeminiService", "[$model] Response code: ${response.code}")
 
                 if (response.code == 503 || response.code == 429) {
                     response.body?.close()
+                    onStatus("$model 사용 불가, 다음 모델 시도 중...")
                     throw Exception("모델 사용 불가 (${response.code}): $model")
                 }
                 if (!response.isSuccessful) {
@@ -113,9 +115,11 @@ class GeminiService(private val apiKeyStore: ApiKeyStore) {
                     throw Exception("API 오류 ${response.code}: $errBody")
                 }
 
+                onModelSelected(model)
                 val accumulated = StringBuilder()
                 val source = response.body?.source() ?: throw Exception("응답 없음")
                 onProgress(0.02f)
+                onStatus("$model · 분석 중...")
 
                 while (!source.exhausted()) {
                     val line = source.readUtf8Line() ?: break
@@ -134,6 +138,7 @@ class GeminiService(private val apiKeyStore: ApiKeyStore) {
                         accumulated.append(text)
                         val progress = (accumulated.length.toFloat() / estimatedResponseChars).coerceIn(0.02f, 0.95f)
                         onProgress(progress)
+                        onStatus("$model · 분석 중... ${(progress * 100).toInt()}%")
                     }
                 }
 

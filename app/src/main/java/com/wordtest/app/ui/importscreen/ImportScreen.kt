@@ -49,7 +49,7 @@ fun ImportScreen(
 
     val uiState by vm.uiState.collectAsState()
     val progress by vm.progress.collectAsState()
-    val currentModel by vm.currentModel.collectAsState()
+    val statusMessage by vm.statusMessage.collectAsState()
     val images by vm.selectedImages.collectAsState()
     var sessionName by remember {
         mutableStateOf("단어목록_${SimpleDateFormat("MMdd_HHmm", Locale.getDefault()).format(Date())}")
@@ -179,26 +179,31 @@ fun ImportScreen(
             if (progress != null) {
                 val (current, total, imageProgress) = progress!!
                 val percent = (imageProgress * 100).toInt()
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("$current / $total 장 인식 중...", style = MaterialTheme.typography.bodyMedium)
-                        Text("$percent%", style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.primary)
+                        Text(
+                            if (total > 1) "$current / ${total}장" else "분석 중",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                        )
+                        Text("$percent%",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
                     }
                     LinearProgressIndicator(
                         progress = { imageProgress },
                         modifier = Modifier.fillMaxWidth()
                     )
-                    if (currentModel != null) {
-                        Text(
-                            "모델: $currentModel",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    Text(
+                        statusMessage ?: "AI 모델 연결 중...",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             } else {
                 Button(
