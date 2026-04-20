@@ -9,6 +9,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import com.wordtest.app.domain.Difficulty
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -45,7 +46,7 @@ fun ResultScreen(
     wrongIds: List<Int>,
     repository: WordRepository,
     onHome: () -> Unit,
-    onRetry: (silent: Boolean, autoMic: Boolean, ordered: Boolean, mcOnly: Boolean, reverseMode: Boolean) -> Unit
+    onRetry: (silent: Boolean, autoMic: Boolean, ordered: Boolean, mcOnly: Boolean, reverseMode: Boolean, difficulty: Int) -> Unit
 ) {
     val percentage = if (total > 0) (score * 100 / total) else 0
     val grade = when {
@@ -159,6 +160,8 @@ fun ResultScreen(
         var autoMic by remember { mutableStateOf(false) }
         var ordered by remember { mutableStateOf(false) }
         var reverseMode by remember { mutableStateOf(false) }
+        var difficulty by remember { mutableStateOf(Difficulty.NORMAL) }
+        val difficultyLabels = listOf("쉬움", "보통", "어려움", "매우 어려움")
         AlertDialog(
             onDismissRequest = { showModeDialog = false },
             title = { Text("테스트 모드 선택") },
@@ -179,9 +182,21 @@ fun ResultScreen(
                         Text("영어→한글 모드", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
                         Switch(checked = reverseMode, onCheckedChange = { reverseMode = it })
                     }
+                    Text("인식 난이도", style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        difficultyLabels.forEachIndexed { idx, label ->
+                            val d = Difficulty.entries[idx]
+                            FilterChip(
+                                selected = difficulty == d,
+                                onClick = { difficulty = d },
+                                label = { Text(label, style = MaterialTheme.typography.labelSmall) }
+                            )
+                        }
+                    }
                     HorizontalDivider()
                     OutlinedButton(
-                        onClick = { onRetry(false, autoMic, ordered, false, reverseMode) },
+                        onClick = { onRetry(false, autoMic, ordered, false, reverseMode, difficulty.ordinal) },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -191,7 +206,7 @@ fun ResultScreen(
                         }
                     }
                     OutlinedButton(
-                        onClick = { onRetry(true, false, ordered, false, reverseMode) },
+                        onClick = { onRetry(true, false, ordered, false, reverseMode, difficulty.ordinal) },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -201,7 +216,7 @@ fun ResultScreen(
                         }
                     }
                     OutlinedButton(
-                        onClick = { onRetry(false, false, ordered, true, reverseMode) },
+                        onClick = { onRetry(false, false, ordered, true, reverseMode, difficulty.ordinal) },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {

@@ -2,6 +2,8 @@ package com.wordtest.app.domain
 
 import com.wordtest.app.data.db.WordEntity
 
+enum class Difficulty { EASY, NORMAL, HARD, VERY_HARD }
+
 data class TestWord(
     val entity: WordEntity,
     var wrongCount: Int = 0,
@@ -9,7 +11,7 @@ data class TestWord(
     var answered: Boolean = false
 )
 
-class TestEngine(words: List<WordEntity>, ordered: Boolean = false, private val multipleChoiceOnly: Boolean = false) {
+class TestEngine(words: List<WordEntity>, ordered: Boolean = false, private val multipleChoiceOnly: Boolean = false, private val difficulty: Difficulty = Difficulty.NORMAL) {
     val testWords: List<TestWord> = (if (ordered) words else words.shuffled()).map { TestWord(it) }
     private var currentIndex = 0
 
@@ -48,9 +50,9 @@ class TestEngine(words: List<WordEntity>, ordered: Boolean = false, private val 
         val normalizedExpected = expected.trim().lowercase()
         return candidates.any { spoken ->
             val s = spoken.trim().lowercase()
+            val allowContains = difficulty == Difficulty.EASY || difficulty == Difficulty.NORMAL
             s == normalizedExpected ||
-            s.contains(normalizedExpected) ||
-            normalizedExpected.contains(s) ||
+            (allowContains && (s.contains(normalizedExpected) || normalizedExpected.contains(s))) ||
             levenshtein(s, normalizedExpected) <= allowedErrors(normalizedExpected.length)
         }
     }
@@ -59,20 +61,34 @@ class TestEngine(words: List<WordEntity>, ordered: Boolean = false, private val 
         val tokens = expected.split(Regex("[,/·()\\s]+"))
             .map { it.trim() }
             .filter { it.length >= 2 }
+        val allowContains = difficulty == Difficulty.EASY || difficulty == Difficulty.NORMAL
         return candidates.any { spoken ->
             val s = spoken.trim().lowercase()
             tokens.any { token ->
                 val t = token.lowercase()
-                s == t || s.contains(t) || t.contains(s) ||
+                s == t ||
+                (allowContains && (s.contains(t) || t.contains(s))) ||
                 levenshtein(s, t) <= allowedErrors(t.length)
             }
         }
     }
 
-    private fun allowedErrors(len: Int) = when {
-        len <= 5 -> 0
-        len <= 8 -> 1
-        else -> 2
+    private fun allowedErrors(len: Int) = when (difficulty) {
+        Difficulty.EASY -> when {
+            len <= 5 -> 1
+            len <= 8 -> 2
+            else -> 3
+        }
+        Difficulty.NORMAL -> when {
+            len <= 5 -> 0
+            len <= 8 -> 1
+            else -> 2
+        }
+        Difficulty.HARD -> when {
+            len <= 8 -> 0
+            else -> 1
+        }
+        Difficulty.VERY_HARD -> 0
     }
 
     private fun levenshtein(a: String, b: String): Int {

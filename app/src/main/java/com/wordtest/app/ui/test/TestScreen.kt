@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.wordtest.app.data.db.WordEntity
 import com.wordtest.app.data.repository.WordRepository
+import com.wordtest.app.domain.Difficulty
 import java.util.*
 
 @Composable
@@ -43,6 +44,7 @@ fun TestScreen(
     ordered: Boolean = false,
     multipleChoiceOnly: Boolean = false,
     reverseMode: Boolean = false,
+    difficulty: Difficulty = Difficulty.NORMAL,
     repository: WordRepository,
     onFinished: (score: Int, total: Int, wrongIds: String) -> Unit
 ) {
@@ -50,7 +52,7 @@ fun TestScreen(
     val vm: TestViewModel = viewModel(factory = object : androidx.lifecycle.ViewModelProvider.Factory {
         override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
             @Suppress("UNCHECKED_CAST")
-            return TestViewModel(sessionId, repository, ordered, multipleChoiceOnly, reverseMode) as T
+            return TestViewModel(sessionId, repository, ordered, multipleChoiceOnly, reverseMode, difficulty) as T
         }
     })
     val uiState by vm.uiState.collectAsState()

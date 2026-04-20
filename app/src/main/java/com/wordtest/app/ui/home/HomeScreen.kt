@@ -18,6 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.wordtest.app.BuildConfig
+import com.wordtest.app.domain.Difficulty
 import com.wordtest.app.data.UpdateChecker
 import com.wordtest.app.data.db.WordSessionEntity
 import com.wordtest.app.data.repository.WordRepository
@@ -30,7 +31,7 @@ fun HomeScreen(
     repository: WordRepository,
     updateChecker: UpdateChecker,
     onNewSession: () -> Unit,
-    onStartTest: (Long, Boolean, Boolean, Boolean, Boolean, Boolean) -> Unit,
+    onStartTest: (Long, Boolean, Boolean, Boolean, Boolean, Boolean, Int) -> Unit,
     onEditWords: (Long) -> Unit,
     onApiKeySetting: () -> Unit
 ) {
@@ -121,8 +122,8 @@ fun HomeScreen(
     testTarget?.let { session ->
         ModeSelectDialog(
             counts = sessionCounts,
-            onStart = { silent, autoMic, ordered, mcOnly, reverseMode ->
-                onStartTest(session.id, silent, autoMic, ordered, mcOnly, reverseMode)
+            onStart = { silent, autoMic, ordered, mcOnly, reverseMode, difficulty ->
+                onStartTest(session.id, silent, autoMic, ordered, mcOnly, reverseMode, difficulty)
                 testTarget = null
                 vm.clearSessionCounts()
             },
@@ -202,12 +203,14 @@ fun HomeScreen(
 @Composable
 private fun ModeSelectDialog(
     counts: Pair<Int, Int>?,
-    onStart: (silent: Boolean, autoMic: Boolean, ordered: Boolean, mcOnly: Boolean, reverseMode: Boolean) -> Unit,
+    onStart: (silent: Boolean, autoMic: Boolean, ordered: Boolean, mcOnly: Boolean, reverseMode: Boolean, difficulty: Int) -> Unit,
     onDismiss: () -> Unit
 ) {
     var autoMic by remember { mutableStateOf(false) }
     var ordered by remember { mutableStateOf(false) }
     var reverseMode by remember { mutableStateOf(false) }
+    var difficulty by remember { mutableStateOf(Difficulty.NORMAL) }
+    val difficultyLabels = listOf("쉬움", "보통", "어려움", "매우 어려움")
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -238,22 +241,34 @@ private fun ModeSelectDialog(
                     Text("영어→한글 모드", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
                     Switch(checked = reverseMode, onCheckedChange = { reverseMode = it })
                 }
+                Text("인식 난이도", style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    difficultyLabels.forEachIndexed { idx, label ->
+                        val d = Difficulty.entries[idx]
+                        FilterChip(
+                            selected = difficulty == d,
+                            onClick = { difficulty = d },
+                            label = { Text(label, style = MaterialTheme.typography.labelSmall) }
+                        )
+                    }
+                }
                 HorizontalDivider()
-                OutlinedButton(onClick = { onStart(false, autoMic, ordered, false, reverseMode) }, modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(onClick = { onStart(false, autoMic, ordered, false, reverseMode, difficulty.ordinal) }, modifier = Modifier.fillMaxWidth()) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("🎤 말하기 모드", fontWeight = FontWeight.Bold)
                         Text(if (reverseMode) "영어 단어를 듣고 한글 뜻 말하기" else "앱이 한글 뜻을 말하면 영어로 말하기",
                             style = MaterialTheme.typography.bodySmall)
                     }
                 }
-                OutlinedButton(onClick = { onStart(true, false, ordered, false, reverseMode) }, modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(onClick = { onStart(true, false, ordered, false, reverseMode, difficulty.ordinal) }, modifier = Modifier.fillMaxWidth()) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("⌨️ 타이핑 모드", fontWeight = FontWeight.Bold)
                         Text(if (reverseMode) "영어 단어를 보고 한글 뜻 타이핑" else "한글 뜻을 보고 영어 단어 타이핑",
                             style = MaterialTheme.typography.bodySmall)
                     }
                 }
-                OutlinedButton(onClick = { onStart(false, false, ordered, true, reverseMode) }, modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(onClick = { onStart(false, false, ordered, true, reverseMode, difficulty.ordinal) }, modifier = Modifier.fillMaxWidth()) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("📝 객관식 모드", fontWeight = FontWeight.Bold)
                         Text("4개 보기 중 정답 선택, 재시도 없음",

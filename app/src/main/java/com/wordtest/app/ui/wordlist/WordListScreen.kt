@@ -43,6 +43,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.wordtest.app.data.api.GeminiService
 import com.wordtest.app.data.db.WordEntity
 import com.wordtest.app.data.repository.WordRepository
+import com.wordtest.app.domain.Difficulty
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -50,7 +51,7 @@ fun WordListScreen(
     sessionId: Long,
     repository: WordRepository,
     geminiService: GeminiService,
-    onStartTest: (Boolean, Boolean, Boolean, Boolean, Boolean) -> Unit,
+    onStartTest: (Boolean, Boolean, Boolean, Boolean, Boolean, Int) -> Unit,
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
@@ -406,6 +407,8 @@ fun WordListScreen(
         var autoMic by remember { mutableStateOf(false) }
         var ordered by remember { mutableStateOf(false) }
         var reverseMode by remember { mutableStateOf(false) }
+        var difficulty by remember { mutableStateOf(Difficulty.NORMAL) }
+        val difficultyLabels = listOf("쉬움", "보통", "어려움", "매우 어려움")
         AlertDialog(
             onDismissRequest = { showModeDialog = false },
             title = { Text("테스트 모드 선택") },
@@ -433,9 +436,21 @@ fun WordListScreen(
                         Text("영어→한글 모드", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
                         Switch(checked = reverseMode, onCheckedChange = { reverseMode = it })
                     }
+                    Text("인식 난이도", style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        difficultyLabels.forEachIndexed { idx, label ->
+                            val d = Difficulty.entries[idx]
+                            FilterChip(
+                                selected = difficulty == d,
+                                onClick = { difficulty = d },
+                                label = { Text(label, style = MaterialTheme.typography.labelSmall) }
+                            )
+                        }
+                    }
                     HorizontalDivider()
                     OutlinedButton(
-                        onClick = { onStartTest(false, autoMic, ordered, false, reverseMode); showModeDialog = false },
+                        onClick = { onStartTest(false, autoMic, ordered, false, reverseMode, difficulty.ordinal); showModeDialog = false },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -445,7 +460,7 @@ fun WordListScreen(
                         }
                     }
                     OutlinedButton(
-                        onClick = { onStartTest(true, false, ordered, false, reverseMode); showModeDialog = false },
+                        onClick = { onStartTest(true, false, ordered, false, reverseMode, difficulty.ordinal); showModeDialog = false },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -455,7 +470,7 @@ fun WordListScreen(
                         }
                     }
                     OutlinedButton(
-                        onClick = { onStartTest(false, false, ordered, true, reverseMode); showModeDialog = false },
+                        onClick = { onStartTest(false, false, ordered, true, reverseMode, difficulty.ordinal); showModeDialog = false },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {

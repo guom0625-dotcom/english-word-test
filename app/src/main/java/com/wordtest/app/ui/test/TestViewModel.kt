@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.wordtest.app.data.db.WordEntity
 import com.wordtest.app.data.repository.WordRepository
+import com.wordtest.app.domain.Difficulty
 import com.wordtest.app.domain.TestEngine
 import com.wordtest.app.domain.TestWord
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,7 +23,8 @@ class TestViewModel(
     private val repository: WordRepository,
     private val ordered: Boolean = false,
     private val multipleChoiceOnly: Boolean = false,
-    val reverseMode: Boolean = false
+    val reverseMode: Boolean = false,
+    private val difficulty: Difficulty = Difficulty.NORMAL
 ) : ViewModel() {
     private val _uiState = MutableStateFlow<TestUiState>(TestUiState.Loading)
     val uiState = _uiState.asStateFlow()
@@ -34,8 +36,8 @@ class TestViewModel(
         viewModelScope.launch {
             allWords = repository.getWordsBySessionOnce(sessionId)
             val testWords = allWords.filter { it.isEnabled }
-            engine = if (testWords.isEmpty()) TestEngine(allWords, ordered, multipleChoiceOnly)
-                     else TestEngine(testWords, ordered, multipleChoiceOnly)
+            engine = if (testWords.isEmpty()) TestEngine(allWords, ordered, multipleChoiceOnly, difficulty)
+                     else TestEngine(testWords, ordered, multipleChoiceOnly, difficulty)
             showCurrent()
         }
     }

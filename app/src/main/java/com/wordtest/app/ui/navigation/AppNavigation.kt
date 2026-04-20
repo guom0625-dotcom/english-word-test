@@ -7,6 +7,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.wordtest.app.WordTestApplication
+import com.wordtest.app.domain.Difficulty
 import com.wordtest.app.ui.apikey.ApiKeyScreen
 import com.wordtest.app.ui.home.HomeScreen
 import com.wordtest.app.ui.importscreen.ImportScreen
@@ -23,9 +24,9 @@ sealed class Screen(val route: String) {
     object WordList : Screen("wordlist/{sessionId}") {
         fun createRoute(sessionId: Long) = "wordlist/$sessionId"
     }
-    object Test : Screen("test/{sessionId}/{silent}/{autoMic}/{ordered}/{mcOnly}/{reverseMode}") {
-        fun createRoute(sessionId: Long, silent: Boolean, autoMic: Boolean = false, ordered: Boolean = false, mcOnly: Boolean = false, reverseMode: Boolean = false) =
-            "test/$sessionId/$silent/$autoMic/$ordered/$mcOnly/$reverseMode"
+    object Test : Screen("test/{sessionId}/{silent}/{autoMic}/{ordered}/{mcOnly}/{reverseMode}/{difficulty}") {
+        fun createRoute(sessionId: Long, silent: Boolean, autoMic: Boolean = false, ordered: Boolean = false, mcOnly: Boolean = false, reverseMode: Boolean = false, difficulty: Int = 1) =
+            "test/$sessionId/$silent/$autoMic/$ordered/$mcOnly/$reverseMode/$difficulty"
     }
     object Result : Screen("result/{score}/{total}/{sessionId}/{wrongIds}") {
         fun createRoute(score: Int, total: Int, sessionId: Long, wrongIds: String = "") =
@@ -67,8 +68,8 @@ fun AppNavigation(app: WordTestApplication) {
                 repository = app.repository,
                 updateChecker = app.updateChecker,
                 onNewSession = { navController.navigate(Screen.Import.route) },
-                onStartTest = { sessionId, silent, autoMic, ordered, mcOnly, reverseMode ->
-                    navController.navigate(Screen.Test.createRoute(sessionId, silent, autoMic, ordered, mcOnly, reverseMode))
+                onStartTest = { sessionId, silent, autoMic, ordered, mcOnly, reverseMode, difficulty ->
+                    navController.navigate(Screen.Test.createRoute(sessionId, silent, autoMic, ordered, mcOnly, reverseMode, difficulty))
                 },
                 onEditWords = { sessionId -> navController.navigate(Screen.WordList.createRoute(sessionId)) },
                 onApiKeySetting = { navController.navigate(Screen.ApiKey.createRoute(false)) }
@@ -96,8 +97,8 @@ fun AppNavigation(app: WordTestApplication) {
                 sessionId = sessionId,
                 repository = app.repository,
                 geminiService = app.geminiService,
-                onStartTest = { silent, autoMic, ordered, mcOnly, reverseMode ->
-                    navController.navigate(Screen.Test.createRoute(sessionId, silent, autoMic, ordered, mcOnly, reverseMode)) {
+                onStartTest = { silent, autoMic, ordered, mcOnly, reverseMode, difficulty ->
+                    navController.navigate(Screen.Test.createRoute(sessionId, silent, autoMic, ordered, mcOnly, reverseMode, difficulty)) {
                         popUpTo(Screen.Home.route)
                     }
                 },
@@ -113,7 +114,8 @@ fun AppNavigation(app: WordTestApplication) {
                 navArgument("autoMic") { type = NavType.BoolType },
                 navArgument("ordered") { type = NavType.BoolType },
                 navArgument("mcOnly") { type = NavType.BoolType },
-                navArgument("reverseMode") { type = NavType.BoolType }
+                navArgument("reverseMode") { type = NavType.BoolType },
+                navArgument("difficulty") { type = NavType.IntType }
             )
         ) { backStackEntry ->
             val sessionId = backStackEntry.arguments?.getLong("sessionId") ?: return@composable
@@ -122,6 +124,7 @@ fun AppNavigation(app: WordTestApplication) {
             val ordered = backStackEntry.arguments?.getBoolean("ordered") ?: false
             val mcOnly = backStackEntry.arguments?.getBoolean("mcOnly") ?: false
             val reverseMode = backStackEntry.arguments?.getBoolean("reverseMode") ?: false
+            val difficulty = Difficulty.entries.getOrElse(backStackEntry.arguments?.getInt("difficulty") ?: 1) { Difficulty.NORMAL }
             TestScreen(
                 sessionId = sessionId,
                 silentMode = silent,
@@ -129,6 +132,7 @@ fun AppNavigation(app: WordTestApplication) {
                 ordered = ordered,
                 multipleChoiceOnly = mcOnly,
                 reverseMode = reverseMode,
+                difficulty = difficulty,
                 repository = app.repository,
                 onFinished = { score, total, wrongIds ->
                     navController.navigate(Screen.Result.createRoute(score, total, sessionId, wrongIds)) {
@@ -161,8 +165,8 @@ fun AppNavigation(app: WordTestApplication) {
                         popUpTo(Screen.Home.route) { inclusive = true }
                     }
                 },
-                onRetry = { silent, autoMic, ordered, mcOnly, reverseMode ->
-                    navController.navigate(Screen.Test.createRoute(sessionId, silent, autoMic, ordered, mcOnly, reverseMode)) {
+                onRetry = { silent, autoMic, ordered, mcOnly, reverseMode, difficulty ->
+                    navController.navigate(Screen.Test.createRoute(sessionId, silent, autoMic, ordered, mcOnly, reverseMode, difficulty)) {
                         popUpTo(Screen.Home.route)
                     }
                 }
