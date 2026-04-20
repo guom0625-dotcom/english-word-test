@@ -94,8 +94,10 @@ class GeminiService(private val apiKeyStore: ApiKeyStore) {
             }
         }.toString()
 
-        var lastError: Exception = Exception("알 수 없는 오류")
-        for (model in modelFallbacks) {
+        var retryDelay = 5000L
+        while (true) {
+            var lastError: Exception = Exception("알 수 없는 오류")
+            for (model in modelFallbacks) {
             val result = runCatching {
                 val request = Request.Builder()
                     .url(streamUrl(model))
@@ -161,8 +163,15 @@ class GeminiService(private val apiKeyStore: ApiKeyStore) {
             Log.w("GeminiService", "[$model] 실패, 다음 모델 시도: ${lastError.message}")
         }
 
-        Log.e("GeminiService", "모든 모델 실패: ${lastError.message}")
-        Result.failure(lastError)
+        Log.w("GeminiService", "모든 모델 실패, ${retryDelay/1000}초 후 재시도: ${lastError.message}")
+        for (remaining in retryDelay/1000 downTo 1) {
+            onStatus("모든 모델 사용 불가, ${remaining}초 후 재시도...")
+            delay(1000)
+        }
+        retryDelay = (retryDelay + 5000L).coerceAtMost(30000L)
+        } // end while(true)
+        @Suppress("UNREACHABLE_CODE")
+        error("unreachable")
     }
 
     private fun bitmapToBase64(bitmap: Bitmap): String {
