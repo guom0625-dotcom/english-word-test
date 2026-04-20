@@ -72,7 +72,8 @@ class GeminiService(private val apiKeyStore: ApiKeyStore) {
 
     suspend fun extractWordsFromImage(
         bitmap: Bitmap,
-        onProgress: (Float) -> Unit = {}
+        onProgress: (Float) -> Unit = {},
+        onModelSelected: (String) -> Unit = {}
     ): Result<List<WordPair>> = withContext(Dispatchers.IO) {
         val imageBase64 = bitmapToBase64(bitmap)
         val requestBody = buildJsonObject {
@@ -99,6 +100,7 @@ class GeminiService(private val apiKeyStore: ApiKeyStore) {
                     .post(requestBody.toRequestBody("application/json".toMediaType()))
                     .build()
 
+                onModelSelected(model)
                 val response = client.newCall(request).execute()
                 Log.d("GeminiService", "[$model] Response code: ${response.code}")
 

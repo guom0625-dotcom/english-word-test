@@ -93,9 +93,10 @@ class WordListViewModel(
             var skipped = 0
             for ((index, bitmap) in bitmaps.withIndex()) {
                 _progress.value = Triple(index + 1, total, 0f)
-                geminiService.extractWordsFromImage(bitmap) { p ->
-                    _progress.value = Triple(index + 1, total, p)
-                }
+                geminiService.extractWordsFromImage(
+                    bitmap,
+                    onProgress = { p -> _progress.value = Triple(index + 1, total, p) }
+                )
                     .onSuccess { pairs ->
                         pairs.forEach { pair ->
                             val added = repository.addWordIfNew(

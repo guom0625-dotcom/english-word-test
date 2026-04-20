@@ -49,6 +49,7 @@ fun ImportScreen(
 
     val uiState by vm.uiState.collectAsState()
     val progress by vm.progress.collectAsState()
+    val currentModel by vm.currentModel.collectAsState()
     val images by vm.selectedImages.collectAsState()
     var sessionName by remember {
         mutableStateOf("단어목록_${SimpleDateFormat("MMdd_HHmm", Locale.getDefault()).format(Date())}")
@@ -191,6 +192,13 @@ fun ImportScreen(
                         progress = { imageProgress },
                         modifier = Modifier.fillMaxWidth()
                     )
+                    if (currentModel != null) {
+                        Text(
+                            "모델: $currentModel",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             } else {
                 Button(
