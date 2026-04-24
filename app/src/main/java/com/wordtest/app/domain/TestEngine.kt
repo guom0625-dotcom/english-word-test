@@ -19,7 +19,10 @@ class TestEngine(words: List<WordEntity>, ordered: Boolean = false, private val 
     val isFinished: Boolean get() = currentIndex >= testWords.size
     val score: Int get() = testWords.count { it.correct }
     val total: Int get() = testWords.size
+    val questionNumber: Int get() = currentIndex + 1
+    val answeredCount: Int get() = currentIndex
     val wrongWords: List<TestWord> get() = testWords.filter { !it.correct }
+    val answeredWrongWords: List<TestWord> get() = testWords.filter { it.answered && !it.correct }
 
     fun onVoiceCorrect() {
         current?.apply { correct = true; answered = true }

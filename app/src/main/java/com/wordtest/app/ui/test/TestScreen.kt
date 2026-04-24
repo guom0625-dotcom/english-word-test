@@ -36,6 +36,7 @@ import com.wordtest.app.data.repository.WordRepository
 import com.wordtest.app.domain.Difficulty
 import java.util.*
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TestScreen(
     sessionId: Long,
@@ -56,6 +57,8 @@ fun TestScreen(
         }
     })
     val uiState by vm.uiState.collectAsState()
+    val questionProgress by vm.questionProgress.collectAsState()
+    var showStopDialog by remember { mutableStateOf(false) }
 
     var tts by remember { mutableStateOf<TextToSpeech?>(null) }
     var ttsReady by remember { mutableStateOf(false) }
@@ -126,10 +129,7 @@ fun TestScreen(
     LaunchedEffect(uiState) {
         when (val state = uiState) {
             is TestUiState.Voice -> if (!silentMode && ttsReady) speakQuestion(questionText(state.word.entity))
-            is TestUiState.Finished -> {
-                val wrongIds = vm.getWrongWords().joinToString(",") { it.entity.id.toString() }
-                onFinished(state.score, state.total, wrongIds)
-            }
+            is TestUiState.Finished -> onFinished(state.score, state.total, state.wrongIds)
             else -> Unit
         }
     }
@@ -139,52 +139,92 @@ fun TestScreen(
         if (uiState is TestUiState.Voice) autoListen = initialAutoMic
     }
 
-    when (val state = uiState) {
-        is TestUiState.Loading -> {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
-        }
-        is TestUiState.Voice -> {
-            val question = questionText(state.word.entity)
-            if (silentMode) {
-                SilentTestScreen(
-                    question = question,
-                    partOfSpeech = state.word.entity.partOfSpeech,
-                    wrongCount = state.wrongCount,
-                    reverseMode = reverseMode,
-                    onSubmit = { vm.onAnswerSubmitted(listOf(it)) }
-                )
-            } else {
-                VoiceTestScreen(
-                    question = question,
-                    partOfSpeech = state.word.entity.partOfSpeech,
-                    wrongCount = state.wrongCount,
-                    reverseMode = reverseMode,
-                    waitingForMic = !autoListen,
-                    onMicClick = { autoListen = true; startListeningFn() },
-                    onSpeak = { speakQuestion(question) }
+    val showTopBar = uiState is TestUiState.Voice || uiState is TestUiState.MultipleChoice
+    Scaffold(
+        topBar = {
+            if (showTopBar) {
+                TopAppBar(
+                    title = {
+                        Text(
+                            "${questionProgress.first} / ${questionProgress.second}",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                    },
+                    actions = {
+                        TextButton(onClick = { showStopDialog = true }) {
+                            Text("중단", color = MaterialTheme.colorScheme.error)
+                        }
+                    }
                 )
             }
         }
-        is TestUiState.MultipleChoice -> {
-            val question = questionText(state.word.entity)
-            MultipleChoiceScreen(
-                question = question,
-                partOfSpeech = state.word.entity.partOfSpeech,
-                choices = state.choices,
-                silentMode = silentMode,
-                reverseMode = reverseMode,
-                isFallback = state.word.wrongCount >= 2,
-                onSelected = { vm.onMultipleChoiceSelected(it) },
-                onSpeak = { speakQuestion(question) }
-            )
-        }
-        is TestUiState.Finished -> {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
+    ) { paddingValues ->
+        Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+            when (val state = uiState) {
+                is TestUiState.Loading -> {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                }
+                is TestUiState.Voice -> {
+                    val question = questionText(state.word.entity)
+                    if (silentMode) {
+                        SilentTestScreen(
+                            question = question,
+                            partOfSpeech = state.word.entity.partOfSpeech,
+                            wrongCount = state.wrongCount,
+                            reverseMode = reverseMode,
+                            onSubmit = { vm.onAnswerSubmitted(listOf(it)) }
+                        )
+                    } else {
+                        VoiceTestScreen(
+                            question = question,
+                            partOfSpeech = state.word.entity.partOfSpeech,
+                            wrongCount = state.wrongCount,
+                            reverseMode = reverseMode,
+                            waitingForMic = !autoListen,
+                            onMicClick = { autoListen = true; startListeningFn() },
+                            onSpeak = { speakQuestion(question) }
+                        )
+                    }
+                }
+                is TestUiState.MultipleChoice -> {
+                    val question = questionText(state.word.entity)
+                    MultipleChoiceScreen(
+                        question = question,
+                        partOfSpeech = state.word.entity.partOfSpeech,
+                        choices = state.choices,
+                        silentMode = silentMode,
+                        reverseMode = reverseMode,
+                        isFallback = state.word.wrongCount >= 2,
+                        onSelected = { vm.onMultipleChoiceSelected(it) },
+                        onSpeak = { speakQuestion(question) }
+                    )
+                }
+                is TestUiState.Finished -> {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                }
             }
         }
+    }
+
+    if (showStopDialog) {
+        AlertDialog(
+            onDismissRequest = { showStopDialog = false },
+            title = { Text("테스트 중단") },
+            text = { Text("지금까지 ${questionProgress.first - 1}문제 중 결과를 확인할까요?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showStopDialog = false
+                    vm.stopTest()
+                }) { Text("중단하기", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showStopDialog = false }) { Text("계속하기") }
+            }
+        )
     }
 }
 

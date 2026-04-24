@@ -15,7 +15,7 @@ sealed class TestUiState {
     object Loading : TestUiState()
     data class Voice(val word: TestWord, val wrongCount: Int) : TestUiState()
     data class MultipleChoice(val word: TestWord, val choices: List<WordEntity>) : TestUiState()
-    data class Finished(val score: Int, val total: Int) : TestUiState()
+    data class Finished(val score: Int, val total: Int, val wrongIds: String = "_") : TestUiState()
 }
 
 class TestViewModel(
@@ -28,6 +28,9 @@ class TestViewModel(
 ) : ViewModel() {
     private val _uiState = MutableStateFlow<TestUiState>(TestUiState.Loading)
     val uiState = _uiState.asStateFlow()
+
+    private val _questionProgress = MutableStateFlow(Pair(1, 0))
+    val questionProgress = _questionProgress.asStateFlow()
 
     private lateinit var engine: TestEngine
     private var allWords: List<WordEntity> = emptyList()
@@ -44,15 +47,23 @@ class TestViewModel(
 
     private fun showCurrent() {
         if (engine.isFinished) {
-            _uiState.value = TestUiState.Finished(engine.score, engine.total)
+            val ids = engine.wrongWords.joinToString(",") { it.entity.id.toString() }.ifEmpty { "_" }
+            _uiState.value = TestUiState.Finished(engine.score, engine.total, ids)
             return
         }
         val word = engine.current ?: return
+        _questionProgress.value = Pair(engine.questionNumber, engine.total)
         if (engine.needsMultipleChoice()) {
             _uiState.value = TestUiState.MultipleChoice(word, engine.generateChoices(allWords, reverseMode))
         } else {
             _uiState.value = TestUiState.Voice(word, word.wrongCount)
         }
+    }
+
+    fun stopTest() {
+        if (!::engine.isInitialized) return
+        val ids = engine.answeredWrongWords.joinToString(",") { it.entity.id.toString() }.ifEmpty { "_" }
+        _uiState.value = TestUiState.Finished(engine.score, engine.answeredCount, ids)
     }
 
     fun onAnswerSubmitted(candidates: List<String>) {
@@ -72,5 +83,4 @@ class TestViewModel(
         showCurrent()
     }
 
-    fun getWrongWords() = engine.wrongWords
 }
