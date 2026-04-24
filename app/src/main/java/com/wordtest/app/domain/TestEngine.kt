@@ -48,12 +48,16 @@ class TestEngine(words: List<WordEntity>, ordered: Boolean = false, private val 
             .shuffled()
             .filter { w ->
                 val text = if (reverseMode) w.korean else w.english
-                text.isNotBlank() && text != correctText
+                text.isNotBlank() && text != correctText &&
+                    if (reverseMode) text.containsKorean() else !text.containsKorean()
             }
             .distinctBy { if (reverseMode) it.korean else it.english }
             .take(3)
         return (distractors + correct).shuffled()
     }
+
+    private fun String.containsKorean() =
+        any { it in '\uAC00'..'\uD7A3' || it in '\u1100'..'\u11FF' || it in '\u3130'..'\u318F' }
 
     fun checkAnswer(candidates: List<String>, expected: String): Boolean {
         val normalizedExpected = expected.trim().lowercase()
