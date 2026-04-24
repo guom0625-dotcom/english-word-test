@@ -4,6 +4,9 @@ import com.wordtest.app.data.db.WordEntity
 
 enum class Difficulty { EASY, NORMAL, HARD, VERY_HARD }
 
+fun String.containsKorean() =
+    any { it in '\uAC00'..'\uD7A3' || it in '\u1100'..'\u11FF' || it in '\u3130'..'\u318F' }
+
 data class TestWord(
     val entity: WordEntity,
     var wrongCount: Int = 0,
@@ -56,8 +59,6 @@ class TestEngine(words: List<WordEntity>, ordered: Boolean = false, private val 
         return (distractors + correct).shuffled()
     }
 
-    private fun String.containsKorean() =
-        any { it in '\uAC00'..'\uD7A3' || it in '\u1100'..'\u11FF' || it in '\u3130'..'\u318F' }
 
     fun checkAnswer(candidates: List<String>, expected: String): Boolean {
         val normalizedExpected = expected.trim().lowercase()

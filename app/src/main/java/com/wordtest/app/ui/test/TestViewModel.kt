@@ -7,6 +7,7 @@ import com.wordtest.app.data.repository.WordRepository
 import com.wordtest.app.domain.Difficulty
 import com.wordtest.app.domain.TestEngine
 import com.wordtest.app.domain.TestWord
+import com.wordtest.app.domain.containsKorean
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -38,9 +39,12 @@ class TestViewModel(
     init {
         viewModelScope.launch {
             allWords = repository.getWordsBySessionOnce(sessionId)
-            val testWords = allWords.filter { it.isEnabled }
-            engine = if (testWords.isEmpty()) TestEngine(allWords, ordered, multipleChoiceOnly, difficulty)
-                     else TestEngine(testWords, ordered, multipleChoiceOnly, difficulty)
+            val enabled = allWords.filter { it.isEnabled }.ifEmpty { allWords }
+            val validWords = if (reverseMode)
+                enabled.filter { it.korean.containsKorean() }
+            else
+                enabled.filter { it.english.isNotBlank() && !it.english.containsKorean() }
+            engine = TestEngine(validWords.ifEmpty { enabled }, ordered, multipleChoiceOnly, difficulty)
             showCurrent()
         }
     }
