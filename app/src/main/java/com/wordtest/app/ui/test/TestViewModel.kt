@@ -49,7 +49,7 @@ class TestViewModel(
         }
         val word = engine.current ?: return
         if (engine.needsMultipleChoice()) {
-            _uiState.value = TestUiState.MultipleChoice(word, engine.generateChoices(allWords))
+            _uiState.value = TestUiState.MultipleChoice(word, engine.generateChoices(allWords, reverseMode))
         } else {
             _uiState.value = TestUiState.Voice(word, word.wrongCount)
         }

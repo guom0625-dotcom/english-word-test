@@ -37,11 +37,17 @@ class TestEngine(words: List<WordEntity>, ordered: Boolean = false, private val 
         currentIndex++
     }
 
-    fun generateChoices(allWords: List<WordEntity>): List<WordEntity> {
+    fun generateChoices(allWords: List<WordEntity>, reverseMode: Boolean = false): List<WordEntity> {
         val correct = current?.entity ?: return emptyList()
+        val correctText = if (reverseMode) correct.korean else correct.english
         val distractors = allWords
             .filter { it.id != correct.id }
             .shuffled()
+            .filter { w ->
+                val text = if (reverseMode) w.korean else w.english
+                text.isNotBlank() && text != correctText
+            }
+            .distinctBy { if (reverseMode) it.korean else it.english }
             .take(3)
         return (distractors + correct).shuffled()
     }
