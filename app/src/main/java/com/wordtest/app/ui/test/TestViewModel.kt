@@ -40,10 +40,9 @@ class TestViewModel(
         viewModelScope.launch {
             allWords = repository.getWordsBySessionOnce(sessionId)
             val enabled = allWords.filter { it.isEnabled }.ifEmpty { allWords }
-            val validWords = if (reverseMode)
-                enabled.filter { it.korean.containsKorean() }
-            else
-                enabled.filter { it.english.isNotBlank() && !it.english.containsKorean() }
+            val validWords = enabled.filter {
+                it.english.isNotBlank() && !it.english.containsKorean() && it.korean.containsKorean()
+            }
             engine = TestEngine(validWords.ifEmpty { enabled }, ordered, multipleChoiceOnly, difficulty)
             showCurrent()
         }
