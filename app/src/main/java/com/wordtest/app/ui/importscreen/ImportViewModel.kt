@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.wordtest.app.data.api.GeminiService
 import com.wordtest.app.data.repository.WordRepository
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -33,14 +34,23 @@ class ImportViewModel(
 
     val selectedImages = MutableStateFlow<List<Bitmap>>(emptyList())
 
+    private var processingJob: Job? = null
+
     fun addImage(bitmap: Bitmap) { selectedImages.value = selectedImages.value + bitmap }
     fun removeImage(index: Int) {
         selectedImages.value = selectedImages.value.toMutableList().also { it.removeAt(index) }
     }
 
+    fun cancelProcessing() {
+        processingJob?.cancel()
+        _uiState.value = ImportUiState.Idle
+        _progress.value = null
+        _statusMessage.value = null
+    }
+
     fun processImages(sessionName: String) {
         if (selectedImages.value.isEmpty()) return
-        viewModelScope.launch {
+        processingJob = viewModelScope.launch {
             _uiState.value = ImportUiState.Processing
             val total = selectedImages.value.size
             val allWords = mutableListOf<com.wordtest.app.data.api.WordPair>()

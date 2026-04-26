@@ -204,6 +204,12 @@ fun ImportScreen(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    OutlinedButton(
+                        onClick = { vm.cancelProcessing() },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("취소", color = MaterialTheme.colorScheme.error)
+                    }
                 }
             } else {
                 Button(
