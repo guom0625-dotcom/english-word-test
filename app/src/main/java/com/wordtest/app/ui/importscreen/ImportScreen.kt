@@ -24,7 +24,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
+import android.app.Activity
+import android.content.ContextWrapper
+import android.view.WindowManager
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.wordtest.app.WordTestApplication
 import com.wordtest.app.data.api.GeminiService
@@ -99,6 +103,16 @@ fun ImportScreen(
         if (uiState is ImportUiState.Done) {
             onWordsExtracted((uiState as ImportUiState.Done).sessionId)
         }
+    }
+
+    val view = LocalView.current
+    val keepScreenOn = progress != null
+    DisposableEffect(keepScreenOn) {
+        var ctx = view.context
+        while (ctx is ContextWrapper && ctx !is Activity) ctx = ctx.baseContext
+        val window = (ctx as? Activity)?.window
+        if (keepScreenOn) window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        onDispose { window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
     }
 
     Scaffold(
