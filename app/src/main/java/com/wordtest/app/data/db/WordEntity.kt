@@ -12,5 +12,7 @@ data class WordEntity(
     val partOfSpeech: String = "",
     val isSynonym: Boolean = false,
     val isAntonym: Boolean = false,
-    val isEnabled: Boolean = true
+    val isEnabled: Boolean = true,
+    val correctCount: Int = 0,
+    val wrongCount: Int = 0
 )

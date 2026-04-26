@@ -41,6 +41,8 @@ class WordRepository(private val dao: WordDao) {
 
     suspend fun updateWord(word: WordEntity) = dao.updateWord(word)
     suspend fun deleteWord(word: WordEntity) = dao.deleteWord(word)
+    suspend fun incrementStats(id: Int, isCorrect: Boolean) =
+        dao.incrementStats(id, if (isCorrect) 1 else 0, if (isCorrect) 0 else 1)
     suspend fun renameSession(sessionId: Long, name: String) = dao.updateSessionName(sessionId, name)
 
     suspend fun deleteSession(sessionId: Long) {

@@ -74,6 +74,23 @@ class WordListViewModel(
         }
     }
 
+    // 정답률 50% 미만(시도 1회 이상)인 단어만 선택, 나머지는 해제
+    fun selectWeakWords(): Int {
+        val targets = words.value.filter {
+            val attempts = it.correctCount + it.wrongCount
+            attempts > 0 && it.correctCount * 2 < attempts
+        }
+        viewModelScope.launch {
+            words.value.forEach { word ->
+                val shouldEnable = word in targets
+                if (word.isEnabled != shouldEnable) {
+                    repository.updateWord(word.copy(isEnabled = shouldEnable))
+                }
+            }
+        }
+        return targets.size
+    }
+
     fun renameSession(name: String) {
         viewModelScope.launch { repository.renameSession(sessionId, name) }
     }

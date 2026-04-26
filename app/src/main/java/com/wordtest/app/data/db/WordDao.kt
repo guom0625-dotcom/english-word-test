@@ -46,4 +46,7 @@ interface WordDao {
 
     @Query("SELECT COUNT(*) FROM words WHERE sessionId = :sessionId AND lower(english) = lower(:english)")
     suspend fun existsByEnglish(sessionId: Long, english: String): Int
+
+    @Query("UPDATE words SET correctCount = correctCount + :correct, wrongCount = wrongCount + :wrong WHERE id = :id")
+    suspend fun incrementStats(id: Int, correct: Int, wrong: Int)
 }

@@ -71,6 +71,7 @@ fun WordListScreen(
     var showAddDialog by remember { mutableStateOf(false) }
     var showModeDialog by remember { mutableStateOf(false) }
     var showRenameDialog by remember { mutableStateOf(false) }
+    var weakSelectMessage by remember { mutableStateOf<String?>(null) }
 
     // 사진 추가용 상태
     var pendingImages by remember { mutableStateOf<List<Bitmap>>(emptyList()) }
@@ -222,8 +223,16 @@ fun WordListScreen(
                         )
                         Text(
                             if (selectAllState == ToggleableState.On) "전체 선택 해제" else "전체 선택",
-                            style = MaterialTheme.typography.bodyMedium
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.weight(1f)
                         )
+                        TextButton(onClick = {
+                            val n = vm.selectWeakWords()
+                            weakSelectMessage = if (n > 0) "정답률 50% 미만 ${n}개 선택됨"
+                                                else "정답률 50% 미만 단어가 없습니다"
+                        }) {
+                            Text("약한 단어 선택", style = MaterialTheme.typography.labelMedium)
+                        }
                     }
                     HorizontalDivider()
                 }
@@ -496,6 +505,14 @@ fun WordListScreen(
         )
     }
 
+    weakSelectMessage?.let { msg ->
+        AlertDialog(
+            onDismissRequest = { weakSelectMessage = null },
+            text = { Text(msg) },
+            confirmButton = { TextButton(onClick = { weakSelectMessage = null }) { Text("확인") } }
+        )
+    }
+
     if (showAddDialog) {
         AddWordDialog(
             onAdd = { eng, kor, pos -> vm.addWord(eng, kor, pos); showAddDialog = false },
@@ -587,6 +604,21 @@ private fun WordItem(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         lineHeight = 20.sp
                     )
+                    val attempts = word.correctCount + word.wrongCount
+                    if (attempts > 0) {
+                        val percent = word.correctCount * 100 / attempts
+                        val statColor = when {
+                            percent >= 80 -> MaterialTheme.colorScheme.primary
+                            percent >= 50 -> MaterialTheme.colorScheme.tertiary
+                            else -> MaterialTheme.colorScheme.error
+                        }
+                        Text(
+                            "정답률 ${percent}% (${word.correctCount}/${attempts})",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = statColor,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
                 Row {
                     IconButton(onClick = { editMode = true }, modifier = Modifier.size(36.dp)) {

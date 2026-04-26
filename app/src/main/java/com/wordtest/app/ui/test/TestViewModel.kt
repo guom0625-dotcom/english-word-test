@@ -76,14 +76,28 @@ class TestViewModel(
         } else {
             engine.checkAnswer(candidates, current.entity.english)
         }
-        if (correct) engine.onVoiceCorrect() else engine.onVoiceWrong()
-        showCurrent()
+        if (correct) {
+            val wordId = current.entity.id
+            engine.onVoiceCorrect()
+            viewModelScope.launch {
+                repository.incrementStats(wordId, true)
+                showCurrent()
+            }
+        } else {
+            engine.onVoiceWrong()
+            showCurrent()
+        }
     }
 
     fun onMultipleChoiceSelected(selected: WordEntity) {
-        val isCorrect = selected.id == engine.current?.entity?.id
+        val current = engine.current ?: return
+        val isCorrect = selected.id == current.entity.id
+        val wordId = current.entity.id
         engine.onMultipleChoiceAnswered(isCorrect)
-        showCurrent()
+        viewModelScope.launch {
+            repository.incrementStats(wordId, isCorrect)
+            showCurrent()
+        }
     }
 
 }
