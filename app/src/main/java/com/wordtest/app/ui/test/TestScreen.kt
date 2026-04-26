@@ -7,6 +7,7 @@ import android.os.Looper
 import android.speech.RecognizerIntent
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -139,7 +140,12 @@ fun TestScreen(
         if (uiState is TestUiState.Voice) autoListen = initialAutoMic
     }
 
-    val showTopBar = uiState is TestUiState.Voice || uiState is TestUiState.MultipleChoice
+    val isTestInProgress = uiState is TestUiState.Voice || uiState is TestUiState.MultipleChoice
+    BackHandler(enabled = isTestInProgress) {
+        showStopDialog = true
+    }
+
+    val showTopBar = isTestInProgress
     Scaffold(
         topBar = {
             if (showTopBar) {
